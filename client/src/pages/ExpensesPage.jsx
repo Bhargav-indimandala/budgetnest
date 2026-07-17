@@ -81,6 +81,7 @@ const ExpensesPage = () => {
   };
 
   const [retroMerge, setRetroMerge] = useState(null); // { source, match } | null
+  const [viewMergeHistory, setViewMergeHistory] = useState(null); // expense | null
 
   const handleFindDuplicate = async (expense) => {
     try {
@@ -523,14 +524,16 @@ const ExpensesPage = () => {
                       </span>
                     )}
                     {expense.mergeHistory && expense.mergeHistory.length > 0 && (
-                      <span
-                        className="text-[10px] font-medium text-accent-600 dark:text-accent-400 bg-accent-100 dark:bg-accent-500/15 px-1.5 py-0.5 rounded-full flex-shrink-0 cursor-help"
-                        title={`Merged with:\n${expense.mergeHistory
-                          .map((h) => `• ${h.title} — ${formatCurrency(h.amount)} (${formatDate(h.date)})`)
-                          .join('\n')}`}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setViewMergeHistory(expense);
+                        }}
+                        className="text-[10px] font-medium text-accent-600 dark:text-accent-400 bg-accent-100 dark:bg-accent-500/15 px-1.5 py-0.5 rounded-full flex-shrink-0 hover:bg-accent-200 dark:hover:bg-accent-500/25 transition-colors"
                       >
-                        merged ({expense.mergeHistory.length})
-                      </span>
+                        merged ({expense.mergeHistory.length}) · view
+                      </button>
                     )}
                   </p>
                   {expense.notes && (
@@ -676,6 +679,45 @@ const ExpensesPage = () => {
                 Cancel
               </button>
             </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* View Merge History — what got folded into this entry */}
+      <Modal
+        isOpen={!!viewMergeHistory}
+        onClose={() => setViewMergeHistory(null)}
+        title={`Merge history for "${viewMergeHistory?.title || ''}"`}
+        size="sm"
+      >
+        {viewMergeHistory && (
+          <div>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
+              This entry is currently {formatCurrency(viewMergeHistory.amount)}
+              {viewMergeHistory.quantity > 1 ? ` (x${viewMergeHistory.quantity})` : ''}, built from the following merges:
+            </p>
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {viewMergeHistory.mergeHistory.map((h, i) => (
+                <div
+                  key={i}
+                  className="flex items-center justify-between bg-gray-50 dark:bg-white/5 rounded-lg px-3 py-2"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm text-gray-800 dark:text-gray-200 truncate">{h.title}</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500">
+                      {h.category} · {formatDate(h.date)}
+                    </p>
+                  </div>
+                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex-shrink-0 ml-3">
+                    {formatCurrency(h.amount)}
+                    {h.quantity > 1 ? ` (x${h.quantity})` : ''}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <button onClick={() => setViewMergeHistory(null)} className="btn-secondary w-full mt-4">
+              Close
+            </button>
           </div>
         )}
       </Modal>
