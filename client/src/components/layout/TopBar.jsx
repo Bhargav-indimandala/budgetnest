@@ -98,7 +98,7 @@ const TopBar = ({ onMenuToggle }) => {
                 initial={{ opacity: 0, y: -8, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -8, scale: 0.95 }}
-                className="absolute right-0 top-12 w-72 bg-white dark:bg-surface-800 rounded-xl shadow-xl dark:shadow-black/40 border border-gray-200 dark:border-white/10 p-3"
+                className="fixed sm:absolute right-4 sm:right-0 left-4 sm:left-auto top-16 sm:top-12 w-auto sm:w-72 max-w-[22rem] bg-white dark:bg-surface-800 rounded-xl shadow-xl dark:shadow-black/40 border border-gray-200 dark:border-white/10 p-3 z-50"
               >
                 <input
                   type="text"
@@ -143,7 +143,7 @@ const TopBar = ({ onMenuToggle }) => {
                 initial={{ opacity: 0, y: -8, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -8, scale: 0.95 }}
-                className="absolute right-0 top-12 w-80 bg-white dark:bg-surface-800 rounded-2xl shadow-xl dark:shadow-black/40 border border-gray-200 dark:border-white/10 overflow-hidden"
+                className="fixed sm:absolute right-4 sm:right-0 left-4 sm:left-auto top-16 sm:top-12 w-auto sm:w-80 max-w-[24rem] bg-white dark:bg-surface-800 rounded-2xl shadow-xl dark:shadow-black/40 border border-gray-200 dark:border-white/10 overflow-hidden z-50"
               >
                 <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-white/5">
                   <h3 className="text-sm font-semibold text-gray-800 dark:text-white">Notifications</h3>
