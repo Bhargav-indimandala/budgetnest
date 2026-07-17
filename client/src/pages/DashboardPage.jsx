@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
   Wallet, TrendingDown, Calendar, Shield, ArrowRight,
-  IndianRupee, Target, PiggyBank,
+  IndianRupee, Target, PiggyBank, ChevronRight,
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import api from '../services/api';
@@ -120,10 +120,17 @@ const DashboardPage = () => {
           </div>
 
           <div className="grid grid-cols-3 gap-4 text-center">
-            <div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Today</p>
-              <p className="text-sm font-semibold text-gray-800 dark:text-white">{formatCurrency(d.todaySpent)}</p>
-            </div>
+            <button
+              onClick={() => navigate('/expenses?today=1')}
+              className="text-center group cursor-pointer"
+            >
+              <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center justify-center gap-0.5">
+                Today <ChevronRight size={12} className="text-primary-400 group-hover:translate-x-0.5 transition-transform" />
+              </p>
+              <p className="text-sm font-semibold text-primary-600 dark:text-primary-400 group-hover:underline">
+                {formatCurrency(d.todaySpent)}
+              </p>
+            </button>
             <div>
               <p className="text-xs text-gray-500 dark:text-gray-400">This Week</p>
               <p className="text-sm font-semibold text-gray-800 dark:text-white">{formatCurrency(d.weeklySpent)}</p>

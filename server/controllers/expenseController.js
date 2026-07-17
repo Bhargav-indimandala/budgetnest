@@ -193,11 +193,21 @@ exports.mergeExpenses = async (req, res, next) => {
       const d = new Date(e.date);
       return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
     });
-    const uniqueDays = new Set(dayKeys);
-    if (uniqueDays.size > 1) {
+    if (new Set(dayKeys).size > 1) {
       return res.status(400).json({
         success: false,
         message: 'Can only merge expenses from the same day. Your selection spans multiple days.',
+      });
+    }
+
+    // Enforce same title (case-insensitive) AND same category — merging is only
+    // safe when the entries genuinely represent the same purchase/item.
+    const titleKeys = expenses.map((e) => e.title.trim().toLowerCase());
+    const categoryKeys = expenses.map((e) => e.category);
+    if (new Set(titleKeys).size > 1 || new Set(categoryKeys).size > 1) {
+      return res.status(400).json({
+        success: false,
+        message: 'Can only merge expenses with the same title and category. Your selection includes different items.',
       });
     }
 
@@ -209,8 +219,18 @@ exports.mergeExpenses = async (req, res, next) => {
     const totalAmount = expenses.reduce((sum, e) => sum + e.amount, 0);
     const totalQuantity = expenses.reduce((sum, e) => sum + (e.quantity || 1), 0);
 
+    // Record exactly what was folded in, so the merge is fully traceable later
+    const newHistoryEntries = rest.map((e) => ({
+      title: e.title,
+      category: e.category,
+      amount: e.amount,
+      quantity: e.quantity || 1,
+      date: e.date,
+    }));
+
     primary.amount = totalAmount;
     primary.quantity = totalQuantity;
+    primary.mergeHistory = [...(primary.mergeHistory || []), ...newHistoryEntries];
     await primary.save();
 
     await Expense.deleteMany({ _id: { $in: rest.map((e) => e._id) } });

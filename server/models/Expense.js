@@ -60,6 +60,20 @@ const expenseSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    // Records what was folded into this expense when merged with duplicates,
+    // so the merge is never silently destructive.
+    mergeHistory: {
+      type: [
+        {
+          title: String,
+          category: String,
+          amount: Number,
+          quantity: Number,
+          date: Date,
+        },
+      ],
+      default: [],
+    },
   },
   {
     timestamps: true,

@@ -108,11 +108,7 @@ const ExpensesPage = () => {
     const { source, match } = retroMerge;
     setFormLoading(true);
     try {
-      await api.put(`/expenses/${match._id}`, {
-        quantity: (match.quantity || 1) + (source.quantity || 1),
-        amount: match.amount + source.amount,
-      });
-      await api.delete(`/expenses/${source._id}`);
+      await api.post('/expenses/merge', { ids: [match._id, source._id] });
       toast.success(`Merged into "${match.title}"`);
       setRetroMerge(null);
       fetchExpenses(pagination.page);
@@ -148,10 +144,8 @@ const ExpensesPage = () => {
     const { match, pendingData } = duplicateCheck;
     setFormLoading(true);
     try {
-      await api.put(`/expenses/${match._id}`, {
-        quantity: (match.quantity || 1) + 1,
-        amount: match.amount + pendingData.amount,
-      });
+      const { data: created } = await api.post('/expenses', pendingData);
+      await api.post('/expenses/merge', { ids: [match._id, created.expense._id] });
       toast.success(`Merged into existing "${match.title}" entry`);
       setShowForm(false);
       setSearchParams({});
@@ -219,10 +213,17 @@ const ExpensesPage = () => {
     if (selectedIds.length < 2) return;
 
     const selected = expenses.filter((e) => selectedIds.includes(e._id));
+
     const dayKeys = selected.map((e) => new Date(e.date).toDateString());
-    const uniqueDays = new Set(dayKeys);
-    if (uniqueDays.size > 1) {
+    if (new Set(dayKeys).size > 1) {
       toast.error('Can only merge expenses from the same day — your selection spans multiple days');
+      return;
+    }
+
+    const titleKeys = selected.map((e) => e.title.trim().toLowerCase());
+    const categoryKeys = selected.map((e) => e.category);
+    if (new Set(titleKeys).size > 1 || new Set(categoryKeys).size > 1) {
+      toast.error('Can only merge expenses with the same title and category — your selection includes different items');
       return;
     }
 
@@ -519,6 +520,16 @@ const ExpensesPage = () => {
                     {expense.quantity > 1 && (
                       <span className="text-[10px] font-semibold text-primary-600 dark:text-primary-400 bg-primary-100 dark:bg-primary-500/15 px-1.5 py-0.5 rounded-full flex-shrink-0">
                         x{expense.quantity}
+                      </span>
+                    )}
+                    {expense.mergeHistory && expense.mergeHistory.length > 0 && (
+                      <span
+                        className="text-[10px] font-medium text-accent-600 dark:text-accent-400 bg-accent-100 dark:bg-accent-500/15 px-1.5 py-0.5 rounded-full flex-shrink-0 cursor-help"
+                        title={`Merged with:\n${expense.mergeHistory
+                          .map((h) => `• ${h.title} — ${formatCurrency(h.amount)} (${formatDate(h.date)})`)
+                          .join('\n')}`}
+                      >
+                        merged ({expense.mergeHistory.length})
                       </span>
                     )}
                   </p>
