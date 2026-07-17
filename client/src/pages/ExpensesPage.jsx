@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Plus, Search, Filter, Trash2, Copy, Download, FileText,
-  ChevronDown, X, CheckSquare, Square,
+  ChevronDown, X, CheckSquare, Square, Calendar, GitMerge,
 } from 'lucide-react';
 import api from '../services/api';
 import { formatCurrency, formatDate } from '../utils/formatters';
@@ -34,15 +34,17 @@ const ExpensesPage = () => {
     search: searchParams.get('search') || '',
     category: '',
     paymentMethod: '',
-    startDate: '',
-    endDate: '',
+    startDate: searchParams.get('today') === '1' ? new Date().toISOString().split('T')[0] : '',
+    endDate: searchParams.get('today') === '1' ? new Date().toISOString().split('T')[0] : '',
     sort: '-date',
   });
 
   const fetchExpenses = useCallback(async (page = 1) => {
     setLoading(true);
     try {
-      const params = { page, limit: 10, sort: filters.sort };
+      const today = new Date().toISOString().split('T')[0];
+      const isTodayFilter = filters.startDate === today && filters.endDate === today;
+      const params = { page, limit: isTodayFilter ? 100 : 10, sort: filters.sort };
       if (filters.search) params.search = filters.search;
       if (filters.category) params.category = filters.category;
       if (filters.paymentMethod) params.paymentMethod = filters.paymentMethod;
@@ -62,7 +64,9 @@ const ExpensesPage = () => {
     fetchExpenses(1);
   }, [fetchExpenses]);
 
-  const handleCreate = async (formData) => {
+  const [duplicateCheck, setDuplicateCheck] = useState(null); // { match, pendingData } | null
+
+  const submitNewExpense = async (formData) => {
     setFormLoading(true);
     try {
       await api.post('/expenses', formData);
@@ -74,6 +78,95 @@ const ExpensesPage = () => {
       toast.error(error.response?.data?.message || 'Failed to add expense');
     }
     setFormLoading(false);
+  };
+
+  const [retroMerge, setRetroMerge] = useState(null); // { source, match } | null
+
+  const handleFindDuplicate = async (expense) => {
+    try {
+      const { data } = await api.get('/expenses/check-duplicate', {
+        params: {
+          title: expense.title,
+          category: expense.category,
+          amount: expense.amount,
+          date: expense.date,
+          excludeId: expense._id,
+        },
+      });
+      if (data.match) {
+        setRetroMerge({ source: expense, match: data.match });
+      } else {
+        toast('No matching same-day expense found to merge with', { icon: 'ℹ️' });
+      }
+    } catch {
+      toast.error('Failed to check for duplicates');
+    }
+  };
+
+  const handleConfirmRetroMerge = async () => {
+    if (!retroMerge) return;
+    const { source, match } = retroMerge;
+    setFormLoading(true);
+    try {
+      await api.put(`/expenses/${match._id}`, {
+        quantity: (match.quantity || 1) + (source.quantity || 1),
+        amount: match.amount + source.amount,
+      });
+      await api.delete(`/expenses/${source._id}`);
+      toast.success(`Merged into "${match.title}"`);
+      setRetroMerge(null);
+      fetchExpenses(pagination.page);
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to merge');
+    }
+    setFormLoading(false);
+  };
+
+  const handleCreate = async (formData) => {
+    // Check if a matching expense (same title/category/amount, same day) already exists
+    try {
+      const { data } = await api.get('/expenses/check-duplicate', {
+        params: {
+          title: formData.title,
+          category: formData.category,
+          amount: formData.amount,
+          date: formData.date,
+        },
+      });
+      if (data.match) {
+        setDuplicateCheck({ match: data.match, pendingData: formData });
+        return;
+      }
+    } catch {
+      // If the check itself fails, don't block adding the expense
+    }
+    submitNewExpense(formData);
+  };
+
+  const handleMergeDuplicate = async () => {
+    if (!duplicateCheck) return;
+    const { match, pendingData } = duplicateCheck;
+    setFormLoading(true);
+    try {
+      await api.put(`/expenses/${match._id}`, {
+        quantity: (match.quantity || 1) + 1,
+        amount: match.amount + pendingData.amount,
+      });
+      toast.success(`Merged into existing "${match.title}" entry`);
+      setShowForm(false);
+      setSearchParams({});
+      setDuplicateCheck(null);
+      fetchExpenses(1);
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to merge');
+    }
+    setFormLoading(false);
+  };
+
+  const handleAddSeparately = () => {
+    if (!duplicateCheck) return;
+    submitNewExpense(duplicateCheck.pendingData);
+    setDuplicateCheck(null);
   };
 
   const handleUpdate = async (formData) => {
@@ -119,6 +212,27 @@ const ExpensesPage = () => {
       fetchExpenses(1);
     } catch (error) {
       toast.error('Bulk delete failed');
+    }
+  };
+
+  const handleMergeSelected = async () => {
+    if (selectedIds.length < 2) return;
+
+    const selected = expenses.filter((e) => selectedIds.includes(e._id));
+    const dayKeys = selected.map((e) => new Date(e.date).toDateString());
+    const uniqueDays = new Set(dayKeys);
+    if (uniqueDays.size > 1) {
+      toast.error('Can only merge expenses from the same day — your selection spans multiple days');
+      return;
+    }
+
+    try {
+      const { data } = await api.post('/expenses/merge', { ids: selectedIds });
+      toast.success(`Merged ${data.mergedCount} expenses into one`);
+      setSelectedIds([]);
+      fetchExpenses(1);
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to merge expenses');
     }
   };
 
@@ -229,6 +343,26 @@ const ExpensesPage = () => {
             />
           </div>
           <button
+            onClick={() => {
+              const today = new Date().toISOString().split('T')[0];
+              const isToday = filters.startDate === today && filters.endDate === today;
+              setFilters({
+                ...filters,
+                startDate: isToday ? '' : today,
+                endDate: isToday ? '' : today,
+              });
+            }}
+            className={`btn-secondary flex items-center gap-2 text-sm ${
+              filters.startDate === new Date().toISOString().split('T')[0] &&
+              filters.endDate === new Date().toISOString().split('T')[0]
+                ? 'bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400'
+                : ''
+            }`}
+          >
+            <Calendar size={14} />
+            Today
+          </button>
+          <button
             onClick={() => setShowFilters(!showFilters)}
             className={`btn-secondary flex items-center gap-2 text-sm ${showFilters ? 'bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400' : ''}`}
           >
@@ -237,6 +371,19 @@ const ExpensesPage = () => {
             <ChevronDown size={14} className={`transition-transform ${showFilters ? 'rotate-180' : ''}`} />
           </button>
         </div>
+
+        {/* Today's summary — shows when the Today quick filter is active */}
+        {filters.startDate === new Date().toISOString().split('T')[0] &&
+          filters.endDate === new Date().toISOString().split('T')[0] && (
+            <div className="mt-3 pt-3 border-t border-gray-100 dark:border-white/5 flex items-center justify-between">
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                {pagination.total || 0} transaction{pagination.total === 1 ? '' : 's'} today
+              </span>
+              <span className="text-sm font-semibold text-gray-800 dark:text-white">
+                Total: {formatCurrency(expenses.reduce((sum, e) => sum + e.amount, 0))}
+              </span>
+            </div>
+          )}
 
         {/* Expandable Filters */}
         {showFilters && (
@@ -290,12 +437,23 @@ const ExpensesPage = () => {
           <span className="text-sm text-gray-600 dark:text-gray-400">
             {selectedIds.length} selected
           </span>
-          <button
-            onClick={handleBulkDelete}
-            className="btn-danger text-sm flex items-center gap-2 !py-2 !px-4"
-          >
-            <Trash2 size={14} /> Delete Selected
-          </button>
+          <div className="flex items-center gap-2">
+            {selectedIds.length >= 2 && (
+              <button
+                onClick={handleMergeSelected}
+                className="btn-secondary text-sm flex items-center gap-2 !py-2 !px-4"
+                title="Merge into one entry (only works for expenses from the same day)"
+              >
+                <GitMerge size={14} /> Merge Selected
+              </button>
+            )}
+            <button
+              onClick={handleBulkDelete}
+              className="btn-danger text-sm flex items-center gap-2 !py-2 !px-4"
+            >
+              <Trash2 size={14} /> Delete Selected
+            </button>
+          </div>
         </motion.div>
       )}
 
@@ -356,7 +514,14 @@ const ExpensesPage = () => {
                   {CATEGORY_ICONS[expense.category] || '📦'}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{expense.title}</p>
+                  <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate flex items-center gap-1.5">
+                    {expense.title}
+                    {expense.quantity > 1 && (
+                      <span className="text-[10px] font-semibold text-primary-600 dark:text-primary-400 bg-primary-100 dark:bg-primary-500/15 px-1.5 py-0.5 rounded-full flex-shrink-0">
+                        x{expense.quantity}
+                      </span>
+                    )}
+                  </p>
                   {expense.notes && (
                     <p className="text-xs text-gray-400 dark:text-gray-500 truncate">{expense.notes}</p>
                   )}
@@ -381,6 +546,13 @@ const ExpensesPage = () => {
 
               {/* Actions */}
               <div className="flex items-center gap-1 justify-end">
+                <button
+                  onClick={() => handleFindDuplicate(expense)}
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-accent-500 hover:bg-accent-50 dark:hover:bg-accent-500/10 transition-all"
+                  title="Merge with a matching entry from the same day"
+                >
+                  <GitMerge size={14} />
+                </button>
                 <button
                   onClick={() => setEditExpense(expense)}
                   className="p-1.5 rounded-lg text-gray-400 hover:text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-500/10 transition-all"
@@ -435,6 +607,67 @@ const ExpensesPage = () => {
         title="Delete Expense"
         message={`Delete "${deleteTarget?.title}"? This action cannot be undone.`}
       />
+
+      {/* Duplicate Detected — Merge or Add Separately */}
+      <Modal isOpen={!!duplicateCheck} onClose={() => setDuplicateCheck(null)} title="Already logged today" size="sm">
+        {duplicateCheck && (
+          <div className="text-center py-1">
+            <p className="text-sm text-gray-600 dark:text-gray-300 mb-1">
+              You already added <span className="font-semibold text-gray-800 dark:text-white">"{duplicateCheck.match.title}"</span> today
+              for <span className="font-semibold">{formatCurrency(duplicateCheck.match.amount)}</span>
+              {duplicateCheck.match.quantity > 1 ? ` (x${duplicateCheck.match.quantity})` : ''}.
+            </p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mb-6">
+              Merge this into that entry (→ x{(duplicateCheck.match.quantity || 1) + 1},{' '}
+              {formatCurrency(duplicateCheck.match.amount + duplicateCheck.pendingData.amount)}), or keep it as a separate transaction.
+            </p>
+            <div className="flex flex-col gap-2">
+              <button onClick={handleMergeDuplicate} disabled={formLoading} className="btn-primary w-full">
+                {formLoading ? 'Merging...' : 'Merge into existing entry'}
+              </button>
+              <button onClick={handleAddSeparately} disabled={formLoading} className="btn-secondary w-full">
+                Add as separate transaction
+              </button>
+              <button
+                onClick={() => setDuplicateCheck(null)}
+                disabled={formLoading}
+                className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 mt-1"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Retroactive Merge — merging two already-saved expenses */}
+      <Modal isOpen={!!retroMerge} onClose={() => setRetroMerge(null)} title="Merge these expenses?" size="sm">
+        {retroMerge && (
+          <div className="text-center py-1">
+            <p className="text-sm text-gray-600 dark:text-gray-300 mb-1">
+              Found a matching same-day entry: <span className="font-semibold text-gray-800 dark:text-white">"{retroMerge.match.title}"</span> for{' '}
+              <span className="font-semibold">{formatCurrency(retroMerge.match.amount)}</span>
+              {retroMerge.match.quantity > 1 ? ` (x${retroMerge.match.quantity})` : ''}.
+            </p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mb-6">
+              Merging will combine both into one entry (→ x{(retroMerge.match.quantity || 1) + (retroMerge.source.quantity || 1)},{' '}
+              {formatCurrency(retroMerge.match.amount + retroMerge.source.amount)}) and delete this separate transaction. This can't be undone.
+            </p>
+            <div className="flex flex-col gap-2">
+              <button onClick={handleConfirmRetroMerge} disabled={formLoading} className="btn-primary w-full">
+                {formLoading ? 'Merging...' : 'Merge them'}
+              </button>
+              <button
+                onClick={() => setRetroMerge(null)}
+                disabled={formLoading}
+                className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 mt-1"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };

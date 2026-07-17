@@ -6,7 +6,7 @@ import {
 } from 'recharts';
 import api from '../services/api';
 import { formatCurrency } from '../utils/formatters';
-import { CATEGORY_COLORS } from '../utils/constants';
+import { getCategoryColor } from '../utils/constants';
 import { PageLoader } from '../components/common/LoadingSpinner';
 
 const CustomTooltip = ({ active, payload, label }) => {
@@ -62,7 +62,7 @@ const AnalyticsPage = () => {
   const pieData = categories.map((c) => ({
     name: c.category,
     value: c.amount,
-    color: CATEGORY_COLORS[c.category] || '#6b7280',
+    color: getCategoryColor(c.category),
     percentage: c.percentage,
   }));
 

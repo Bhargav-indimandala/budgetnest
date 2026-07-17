@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const {
   getExpenses, getExpense, createExpense, updateExpense, deleteExpense,
-  bulkDelete, duplicateExpense, searchExpenses, exportCSV, exportPDF,
+  bulkDelete, duplicateExpense, searchExpenses, exportCSV, exportPDF, checkDuplicate, mergeExpenses,
 } = require('../controllers/expenseController');
 const { protect } = require('../middleware/auth');
 const { validate, expenseRules, objectIdRule } = require('../middleware/validate');
@@ -11,9 +11,11 @@ const upload = require('../middleware/upload');
 router.use(protect);
 
 router.get('/search', searchExpenses);
+router.get('/check-duplicate', checkDuplicate);
 router.get('/export/csv', exportCSV);
 router.get('/export/pdf', exportPDF);
 router.post('/bulk-delete', bulkDelete);
+router.post('/merge', mergeExpenses);
 
 router.route('/')
   .get(getExpenses)

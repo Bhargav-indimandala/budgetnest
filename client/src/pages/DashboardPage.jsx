@@ -9,7 +9,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { formatCurrency, formatDate, getRelativeTime } from '../utils/formatters';
-import { CATEGORY_COLORS, CATEGORY_ICONS } from '../utils/constants';
+import { getCategoryColor, CATEGORY_ICONS } from '../utils/constants';
 import StatCard from '../components/common/StatCard';
 import { PageLoader } from '../components/common/LoadingSpinner';
 
@@ -45,7 +45,7 @@ const DashboardPage = () => {
   const pieData = d.topCategories?.map((cat) => ({
     name: cat.category,
     value: cat.amount,
-    color: CATEGORY_COLORS[cat.category] || '#6b7280',
+    color: getCategoryColor(cat.category),
   })) || [];
 
   const budgetPercent = d.percentUsed || 0;

@@ -5,7 +5,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 15000,
+  timeout: 45000, // 45s — Render's free tier can take 30-60s to wake up from sleep
 });
 
 // Response interceptor for error handling

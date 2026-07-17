@@ -1,5 +1,8 @@
 const Expense = require('../models/Expense');
 
+// Escapes regex special characters so user input can't break/abuse the pattern
+const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 // @desc    Get all expenses (paginated, filtered, sorted)
 // @route   GET /api/expenses
 exports.getExpenses = async (req, res, next) => {
@@ -85,6 +88,39 @@ exports.createExpense = async (req, res, next) => {
   }
 };
 
+// @desc    Check for a same-day matching expense (same title, category, amount)
+//          so the frontend can offer to merge instead of creating a duplicate
+// @route   GET /api/expenses/check-duplicate?title=&category=&amount=&date=
+exports.checkDuplicate = async (req, res, next) => {
+  try {
+    const { title, category, amount, date, excludeId } = req.query;
+    if (!title || !category || !amount) {
+      return res.json({ success: true, match: null });
+    }
+
+    const targetDate = date ? new Date(date) : new Date();
+    const startOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+    const endOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59, 999);
+
+    const query = {
+      userId: req.user._id,
+      title: { $regex: `^${escapeRegex(title.trim())}$`, $options: 'i' },
+      category,
+      amount: parseFloat(amount),
+      date: { $gte: startOfDay, $lte: endOfDay },
+    };
+    if (excludeId) {
+      query._id = { $ne: excludeId };
+    }
+
+    const match = await Expense.findOne(query);
+
+    res.json({ success: true, match: match || null });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Update expense
 // @route   PUT /api/expenses/:id
 exports.updateExpense = async (req, res, next) => {
@@ -130,6 +166,56 @@ exports.bulkDelete = async (req, res, next) => {
     }
     const result = await Expense.deleteMany({ _id: { $in: ids }, userId: req.user._id });
     res.json({ success: true, message: `${result.deletedCount} expenses deleted` });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Merge two or more existing expenses into one (sums amount and quantity).
+//          Only allowed when every selected expense falls on the SAME calendar day —
+//          merging across different days is rejected to avoid corrupting history.
+// @route   POST /api/expenses/merge
+// @body    { ids: [id1, id2, ...] }
+exports.mergeExpenses = async (req, res, next) => {
+  try {
+    const { ids } = req.body;
+    if (!ids || !Array.isArray(ids) || ids.length < 2) {
+      return res.status(400).json({ success: false, message: 'Select at least 2 expenses to merge' });
+    }
+
+    const expenses = await Expense.find({ _id: { $in: ids }, userId: req.user._id });
+    if (expenses.length !== ids.length) {
+      return res.status(404).json({ success: false, message: 'One or more expenses were not found' });
+    }
+
+    // Enforce same calendar day across all selected expenses
+    const dayKeys = expenses.map((e) => {
+      const d = new Date(e.date);
+      return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    });
+    const uniqueDays = new Set(dayKeys);
+    if (uniqueDays.size > 1) {
+      return res.status(400).json({
+        success: false,
+        message: 'Can only merge expenses from the same day. Your selection spans multiple days.',
+      });
+    }
+
+    // Merge into the earliest-created expense; delete the rest
+    const sorted = [...expenses].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    const primary = sorted[0];
+    const rest = sorted.slice(1);
+
+    const totalAmount = expenses.reduce((sum, e) => sum + e.amount, 0);
+    const totalQuantity = expenses.reduce((sum, e) => sum + (e.quantity || 1), 0);
+
+    primary.amount = totalAmount;
+    primary.quantity = totalQuantity;
+    await primary.save();
+
+    await Expense.deleteMany({ _id: { $in: rest.map((e) => e._id) } });
+
+    res.json({ success: true, expense: primary, mergedCount: expenses.length });
   } catch (error) {
     next(error);
   }

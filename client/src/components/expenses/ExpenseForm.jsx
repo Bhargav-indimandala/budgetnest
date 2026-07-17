@@ -8,6 +8,7 @@ const ExpenseForm = ({ onSubmit, onCancel, initialData = null, loading = false }
     defaultValues: initialData ? {
       title: initialData.title || '',
       amount: initialData.amount || '',
+      quantity: initialData.quantity || 1,
       category: initialData.category || '',
       paymentMethod: initialData.paymentMethod || 'Cash',
       date: formatDateInput(initialData.date) || formatDateInput(new Date()),
@@ -17,6 +18,7 @@ const ExpenseForm = ({ onSubmit, onCancel, initialData = null, loading = false }
     } : {
       title: '',
       amount: '',
+      quantity: 1,
       category: '',
       paymentMethod: 'Cash',
       date: formatDateInput(new Date()),
@@ -32,6 +34,7 @@ const ExpenseForm = ({ onSubmit, onCancel, initialData = null, loading = false }
     const processed = {
       ...data,
       amount: parseFloat(data.amount),
+      quantity: data.quantity ? parseInt(data.quantity, 10) : 1,
       tags: data.tags ? data.tags.split(',').map((t) => t.trim()).filter(Boolean) : [],
     };
     onSubmit(processed);
@@ -51,8 +54,8 @@ const ExpenseForm = ({ onSubmit, onCancel, initialData = null, loading = false }
         {errors.title && <p className="text-xs text-red-400 mt-1">{errors.title.message}</p>}
       </div>
 
-      {/* Amount + Date Row */}
-      <div className="grid grid-cols-2 gap-4">
+      {/* Amount + Quantity + Date Row */}
+      <div className="grid grid-cols-3 gap-4">
         <div>
           <label className="label">Amount (₹)</label>
           <input
@@ -66,6 +69,16 @@ const ExpenseForm = ({ onSubmit, onCancel, initialData = null, loading = false }
             className="input-field"
           />
           {errors.amount && <p className="text-xs text-red-400 mt-1">{errors.amount.message}</p>}
+        </div>
+        <div>
+          <label className="label">Qty</label>
+          <input
+            type="number"
+            min="1"
+            step="1"
+            {...register('quantity', { min: { value: 1, message: 'Min 1' } })}
+            className="input-field"
+          />
         </div>
         <div>
           <label className="label">Date</label>

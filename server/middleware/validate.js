@@ -16,21 +16,21 @@ const validate = (req, res, next) => {
 // Sanitize input to prevent MongoDB injection
 const sanitizeInput = (req, res, next) => {
   const sanitize = (obj) => {
-  if (typeof obj !== 'object' || obj === null) return obj;
-  if (Array.isArray(obj)) {
-    return obj.map((item) => sanitize(item));
-  }
-  const sanitized = {};
-  for (const key in obj) {
-    if (key.startsWith('$')) continue; // Strip $ operators
-    if (typeof obj[key] === 'object' && obj[key] !== null && !(obj[key] instanceof Date)) {
-      sanitized[key] = sanitize(obj[key]);
-    } else {
-      sanitized[key] = obj[key];
+    if (typeof obj !== 'object' || obj === null) return obj;
+    if (Array.isArray(obj)) {
+      return obj.map((item) => sanitize(item));
     }
-  }
-  return sanitized;
-};
+    const sanitized = {};
+    for (const key in obj) {
+      if (key.startsWith('$')) continue; // Strip $ operators
+      if (typeof obj[key] === 'object' && obj[key] !== null && !(obj[key] instanceof Date)) {
+        sanitized[key] = sanitize(obj[key]);
+      } else {
+        sanitized[key] = obj[key];
+      }
+    }
+    return sanitized;
+  };
   if (req.body) req.body = sanitize(req.body);
   if (req.query) req.query = sanitize(req.query);
   if (req.params) req.params = sanitize(req.params);
@@ -58,6 +58,7 @@ const changePasswordRules = [
 const expenseRules = [
   body('title').trim().notEmpty().withMessage('Title is required').isLength({ max: 100 }),
   body('amount').isFloat({ min: 0.01 }).withMessage('Amount must be greater than 0'),
+  body('quantity').optional().isInt({ min: 1 }).withMessage('Quantity must be at least 1'),
   body('category').trim().notEmpty().withMessage('Category is required'),
   body('paymentMethod').optional().isIn(['Cash', 'UPI', 'Card', 'Online', 'Other']),
   body('date').optional().isISO8601().withMessage('Invalid date format'),

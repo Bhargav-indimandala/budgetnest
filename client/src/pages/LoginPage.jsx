@@ -10,17 +10,25 @@ const LoginPage = () => {
   const { login, isAuthenticated, loading } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [wakingUp, setWakingUp] = useState(false);
   const { register, handleSubmit, formState: { errors } } = useForm();
 
   if (isAuthenticated) return <Navigate to="/" replace />;
 
   const onSubmit = async (data) => {
     setSubmitting(true);
+    const wakeTimer = setTimeout(() => setWakingUp(true), 4000);
     try {
       await login(data.email, data.password);
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Login failed');
+      if (error.code === 'ECONNABORTED') {
+        toast.error('Server is taking longer than usual to respond. Please try again in a few seconds.');
+      } else {
+        toast.error(error.response?.data?.message || 'Login failed');
+      }
     }
+    clearTimeout(wakeTimer);
+    setWakingUp(false);
     setSubmitting(false);
   };
 
@@ -99,11 +107,14 @@ const LoginPage = () => {
               className="btn-primary w-full flex items-center justify-center gap-2"
             >
               {submitting ? (
-                <motion.div
-                  className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full"
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
-                />
+                <>
+                  <motion.div
+                    className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full flex-shrink-0"
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
+                  />
+                  {wakingUp && <span className="text-sm">Waking up server, hang tight...</span>}
+                </>
               ) : (
                 'Sign In'
               )}
