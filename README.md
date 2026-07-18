@@ -9,6 +9,12 @@ one-time assets, recurring bills, and get automatic budget insights.
 ![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248?logo=mongodb&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-blue)
 
+## 🌐 Live Demo
+
+🚀 **Try BudgetNest here:**
+
+**Frontend:** https://budgetnest-six.vercel.app/
+
 ---
 
 ## ✨ Features
