@@ -18,6 +18,8 @@ const DashboardPage = () => {
   const navigate = useNavigate();
   const [dashboard, setDashboard] = useState(null);
   const [insights, setInsights] = useState([]);
+  const [plannedDue, setPlannedDue] = useState([]);
+  const [confirmingId, setConfirmingId] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -26,16 +28,39 @@ const DashboardPage = () => {
 
   const fetchDashboard = async () => {
     try {
-      const [dashRes, insightRes] = await Promise.all([
+      const [dashRes, insightRes, plannedRes] = await Promise.all([
         api.get('/analytics/dashboard'),
         api.get('/analytics/insights'),
+        api.get('/expenses/planned-due'),
       ]);
       setDashboard(dashRes.data.dashboard);
       setInsights(insightRes.data.insights || []);
+      setPlannedDue(plannedRes.data.expenses || []);
     } catch (error) {
       console.error('Dashboard fetch error:', error);
     }
     setLoading(false);
+  };
+
+  const confirmPlannedSpent = async (expense) => {
+    setConfirmingId(expense._id);
+    try {
+      await api.put(`/expenses/${expense._id}`, {
+        title: expense.title,
+        amount: expense.amount,
+        quantity: expense.quantity || 1,
+        category: expense.category,
+        paymentMethod: expense.paymentMethod || 'Cash',
+        date: expense.date,
+        notes: expense.notes || '',
+        isPlanned: false,
+      });
+      setPlannedDue((prev) => prev.filter((e) => e._id !== expense._id));
+      fetchDashboard();
+    } catch (error) {
+      console.error('Failed to confirm planned expense:', error);
+    }
+    setConfirmingId(null);
   };
 
   if (loading) return <PageLoader />;
@@ -64,7 +89,57 @@ const DashboardPage = () => {
         </p>
       </motion.div>
 
-      {/* Stat Cards */}
+      {/* Planned Expenses Due — only shows items whose date has actually arrived */}
+      {plannedDue.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="glass-card border-l-4 border-amber-400 dark:border-amber-500"
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-lg">📌</span>
+            <h3 className="text-sm font-semibold text-gray-800 dark:text-white">
+              Planned {plannedDue.length === 1 ? 'expense' : 'expenses'} to confirm
+            </h3>
+          </div>
+          <div className="space-y-2">
+            {plannedDue.map((expense) => {
+              const isOverdue = new Date(expense.date) < new Date(new Date().toDateString());
+              return (
+                <div
+                  key={expense._id}
+                  className="flex items-center justify-between gap-3 bg-amber-50 dark:bg-amber-500/10 rounded-xl px-4 py-3"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
+                      {expense.title} · {formatCurrency(expense.amount)}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {isOverdue ? 'Was planned for' : 'Planned for'} {formatDate(expense.date)}
+                      {isOverdue ? ' (overdue)' : ' (today)'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button
+                      onClick={() => confirmPlannedSpent(expense)}
+                      disabled={confirmingId === expense._id}
+                      className="text-xs font-medium px-3 py-1.5 rounded-lg bg-primary-500 text-white hover:bg-primary-600 transition-colors disabled:opacity-60"
+                    >
+                      {confirmingId === expense._id ? 'Saving...' : "Yes, I spent it"}
+                    </button>
+                    <button
+                      onClick={() => navigate('/expenses')}
+                      className="text-xs font-medium px-3 py-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
+                    >
+                      Not yet
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </motion.div>
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           icon={Wallet}

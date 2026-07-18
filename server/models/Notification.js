@@ -11,7 +11,7 @@ const notificationSchema = new mongoose.Schema(
     type: {
       type: String,
       required: true,
-      enum: ['rent_reminder', 'budget_exceeded', 'daily_reminder', 'recurring_reminder', 'info'],
+      enum: ['rent_reminder', 'budget_exceeded', 'daily_reminder', 'recurring_reminder', 'planned_due', 'info'],
     },
     title: {
       type: String,

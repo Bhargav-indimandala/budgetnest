@@ -1,4 +1,5 @@
 const { validationResult, body, param, query } = require('express-validator');
+const { getISTDayRangeUTC } = require('../utils/dateUtils');
 
 // Middleware to check validation results
 const validate = (req, res, next) => {
@@ -65,9 +66,8 @@ const expenseRules = [
   body('date').custom((value, { req }) => {
     if (!value) return true;
     if (req.body.isPlanned === true || req.body.isPlanned === 'true') return true;
-    const endOfToday = new Date();
-    endOfToday.setHours(23, 59, 59, 999);
-    if (new Date(value) > endOfToday) {
+    const { endUTC: endOfTodayIST } = getISTDayRangeUTC();
+    if (new Date(value) > endOfTodayIST) {
       throw new Error('Date cannot be in the future unless marked as a planned expense');
     }
     return true;

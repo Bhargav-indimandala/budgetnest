@@ -309,19 +309,41 @@ exports.duplicateExpense = async (req, res, next) => {
 
 // @desc    Search expenses
 // @route   GET /api/expenses/search
+// @desc    Get planned/upcoming expenses whose date has arrived (today or
+//          earlier) and are still unconfirmed — used by the Dashboard's
+//          "planned expenses due" widget so the person can confirm spent/not.
+// @route   GET /api/expenses/planned-due
+exports.getPlannedDue = async (req, res, next) => {
+  try {
+    const { getISTDayRangeUTC } = require('../utils/dateUtils');
+    const { endUTC } = getISTDayRangeUTC();
+
+    const expenses = await Expense.find({
+      userId: req.user._id,
+      isPlanned: true,
+      date: { $lte: endUTC },
+    }).sort('date');
+
+    res.json({ success: true, expenses });
+  } catch (error) {
+    next(error);
+  }
+};
+
 exports.searchExpenses = async (req, res, next) => {
   try {
     const { q } = req.query;
     if (!q) {
       return res.status(400).json({ success: false, message: 'Search query is required' });
     }
+    const safeQ = escapeRegex(q);
     const expenses = await Expense.find({
       userId: req.user._id,
       $or: [
-        { title: { $regex: q, $options: 'i' } },
-        { notes: { $regex: q, $options: 'i' } },
-        { category: { $regex: q, $options: 'i' } },
-        { tags: { $in: [new RegExp(q, 'i')] } },
+        { title: { $regex: safeQ, $options: 'i' } },
+        { notes: { $regex: safeQ, $options: 'i' } },
+        { category: { $regex: safeQ, $options: 'i' } },
+        { tags: { $in: [new RegExp(safeQ, 'i')] } },
       ],
     })
       .sort('-date')

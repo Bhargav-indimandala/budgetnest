@@ -4,32 +4,7 @@ const Budget = require('../models/Budget');
 const Expense = require('../models/Expense');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
-
-// This app's users are assumed to be in India (IST, UTC+5:30) — there's no
-// per-user timezone setting yet, so "today" and reminderTime comparisons
-// below are computed in IST rather than the server's own (UTC) clock.
-const IST_OFFSET_MINUTES = 5 * 60 + 30;
-
-const getISTParts = (date = new Date()) => {
-  const istMs = date.getTime() + IST_OFFSET_MINUTES * 60 * 1000;
-  const ist = new Date(istMs);
-  return {
-    year: ist.getUTCFullYear(),
-    month: ist.getUTCMonth(),
-    day: ist.getUTCDate(),
-    hours: ist.getUTCHours(),
-    minutes: ist.getUTCMinutes(),
-  };
-};
-
-// Returns the UTC instant range [startOfDay, endOfDay] for "today" in IST
-const getISTDayRangeUTC = () => {
-  const { year, month, day } = getISTParts();
-  // Midnight IST expressed as a UTC instant is (UTC midnight - IST offset)
-  const startUTC = new Date(Date.UTC(year, month, day, 0, 0, 0) - IST_OFFSET_MINUTES * 60 * 1000);
-  const endUTC = new Date(startUTC.getTime() + 24 * 60 * 60 * 1000 - 1);
-  return { startUTC, endUTC };
-};
+const { getISTParts, getISTDayRangeUTC } = require('../utils/dateUtils');
 
 // Process due recurring expenses (rent, internet, subscriptions, etc.)
 const runRecurringCheck = async () => {
@@ -86,7 +61,7 @@ const runBudgetCheck = async () => {
   return { warned, exceeded };
 };
 
-module.exports = { runRecurringCheck, runBudgetCheck, runDailyReminderCheck };
+module.exports = { runRecurringCheck, runBudgetCheck, runDailyReminderCheck, runPlannedExpenseCheck };
 
 // Checks each user with the "no expense added today" preference enabled:
 // if it's past their chosen reminderTime (IST) and they haven't logged any
@@ -135,6 +110,47 @@ async function runDailyReminderCheck() {
     console.error('[Cron] Daily reminder check error:', error.message);
   }
   console.log(`[Cron] Daily reminder check: ${sent} reminder(s) sent`);
+  return { sent };
+}
+
+// Checks for planned/upcoming expenses whose date has arrived (today or
+// earlier) and are still marked isPlanned: true — i.e. never confirmed as
+// actually spent. Sends exactly one notification per expense per day it's
+// still outstanding, naming that specific item — never a generic
+// "you have planned expenses" blast, and never touches spending totals
+// automatically. The person must open the app and explicitly confirm.
+async function runPlannedExpenseCheck() {
+  let sent = 0;
+  try {
+    const { startUTC: startOfTodayIST, endUTC: endOfTodayIST } = getISTDayRangeUTC();
+
+    const duePlanned = await Expense.find({
+      isPlanned: true,
+      date: { $lte: endOfTodayIST },
+    });
+
+    for (const expense of duePlanned) {
+      const alreadySentToday = await Notification.exists({
+        userId: expense.userId,
+        type: 'planned_due',
+        relatedId: expense._id,
+        createdAt: { $gte: startOfTodayIST, $lte: endOfTodayIST },
+      });
+      if (alreadySentToday) continue;
+
+      const isOverdue = new Date(expense.date) < startOfTodayIST;
+      const title = isOverdue ? 'Planned expense overdue ⏰' : "Planned expense due today 📌";
+      const message = isOverdue
+        ? `You planned "${expense.title}" (₹${expense.amount}) for an earlier date — did you end up spending it?`
+        : `You planned to spend ₹${expense.amount} on "${expense.title}" today — did you spend it?`;
+
+      await createNotification(expense.userId, 'planned_due', title, message, expense._id);
+      sent += 1;
+    }
+  } catch (error) {
+    console.error('[Cron] Planned expense check error:', error.message);
+  }
+  console.log(`[Cron] Planned expense check: ${sent} reminder(s) sent`);
   return { sent };
 }
 

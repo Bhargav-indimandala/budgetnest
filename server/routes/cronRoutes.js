@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { runRecurringCheck, runBudgetCheck, runDailyReminderCheck } = require('../services/cronJobs');
+const { runRecurringCheck, runBudgetCheck, runDailyReminderCheck, runPlannedExpenseCheck } = require('../services/cronJobs');
 
 // Shared-secret check — this route is intentionally NOT behind JWT auth,
 // since it's meant to be called by an external scheduler (e.g. cron-job.org)
@@ -56,6 +56,17 @@ router.all('/run-daily-reminder', requireCronSecret, async (req, res, next) => {
   }
 });
 
+// @desc    Run planned/upcoming expense due-date checks on demand
+// @route   GET/POST /api/cron/run-planned-check?key=CRON_SECRET
+router.all('/run-planned-check', requireCronSecret, async (req, res, next) => {
+  try {
+    const result = await runPlannedExpenseCheck();
+    res.json({ success: true, job: 'planned-check', ...result });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // @desc    Run both jobs in one call — convenient for a single external scheduler ping
 // @route   GET/POST /api/cron/run-all?key=CRON_SECRET
 router.all('/run-all', requireCronSecret, async (req, res, next) => {
@@ -63,7 +74,8 @@ router.all('/run-all', requireCronSecret, async (req, res, next) => {
     const recurring = await runRecurringCheck();
     const budget = await runBudgetCheck();
     const dailyReminder = await runDailyReminderCheck();
-    res.json({ success: true, job: 'run-all', recurring, budget, dailyReminder });
+    const plannedCheck = await runPlannedExpenseCheck();
+    res.json({ success: true, job: 'run-all', recurring, budget, dailyReminder, plannedCheck });
   } catch (error) {
     next(error);
   }

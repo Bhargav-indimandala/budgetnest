@@ -10,7 +10,7 @@ const connectDB = require('./config/db');
 const errorHandler = require('./middleware/errorHandler');
 const { sanitizeInput } = require('./middleware/validate');
 const { apiLimiter, authLimiter } = require('./middleware/rateLimiter');
-const { runRecurringCheck, runBudgetCheck, runDailyReminderCheck } = require('./services/cronJobs');
+const { runRecurringCheck, runBudgetCheck, runDailyReminderCheck, runPlannedExpenseCheck } = require('./services/cronJobs');
 
 // Connect to database
 connectDB();
@@ -89,6 +89,13 @@ cron.schedule('0 21 * * *', async () => {
 cron.schedule('0 * * * *', async () => {
   console.log('[Cron] Checking daily expense reminders...');
   await runDailyReminderCheck();
+}, { timezone: 'Asia/Kolkata' });
+
+// Check for planned/upcoming expenses whose date has arrived, daily at 8 AM IST —
+// only reminds about the specific items actually due, not a generic blast
+cron.schedule('0 8 * * *', async () => {
+  console.log('[Cron] Checking planned expenses due...');
+  await runPlannedExpenseCheck();
 }, { timezone: 'Asia/Kolkata' });
 
 // Create uploads directory
