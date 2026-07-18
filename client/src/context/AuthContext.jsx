@@ -53,11 +53,37 @@ export const AuthProvider = ({ children }) => {
     return data;
   }, []);
 
+  // Does NOT log the user in — the account isn't usable until the emailed
+  // OTP is confirmed via verifyEmail(). Callers should route to a
+  // verification screen with the returned email.
   const register = useCallback(async (name, email, password) => {
     const { data } = await api.post('/auth/register', { name, email, password });
+    return data;
+  }, []);
+
+  const verifyEmail = useCallback(async (email, otp) => {
+    const { data } = await api.post('/auth/verify-email', { email, otp });
     setToken(data.token);
     setUser(data.user);
-    toast.success('Account created successfully!');
+    toast.success('Email verified — welcome to BudgetNest!');
+    return data;
+  }, []);
+
+  const resendOtp = useCallback(async (email) => {
+    const { data } = await api.post('/auth/resend-otp', { email });
+    return data;
+  }, []);
+
+  const forgotPassword = useCallback(async (email) => {
+    const { data } = await api.post('/auth/forgot-password', { email });
+    return data;
+  }, []);
+
+  const resetPassword = useCallback(async (email, otp, newPassword) => {
+    const { data } = await api.post('/auth/reset-password', { email, otp, newPassword });
+    setToken(data.token);
+    setUser(data.user);
+    toast.success('Password reset — you\'re logged in');
     return data;
   }, []);
 
@@ -84,7 +110,11 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider
-      value={{ user, token, loading, login, register, logout, logoutAllDevices, updateUser, isAuthenticated: !!user }}
+      value={{
+        user, token, loading, login, register, logout, logoutAllDevices, updateUser,
+        verifyEmail, resendOtp, forgotPassword, resetPassword,
+        isAuthenticated: !!user,
+      }}
     >
       {children}
     </AuthContext.Provider>

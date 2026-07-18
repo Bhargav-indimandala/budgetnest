@@ -78,6 +78,27 @@ const userSchema = new mongoose.Schema(
       default: 0,
       select: false,
     },
+    // Set true once the user has confirmed their email via OTP at signup.
+    // Login is blocked until this is true, so only real, reachable email
+    // addresses can actually use the app.
+    isVerified: {
+      type: Boolean,
+      default: false,
+    },
+    // OTP state for the email-verification flow (signup). Hidden by default
+    // like password/tokenVersion — never returned in normal queries.
+    emailVerification: {
+      codeHash: { type: String, select: false },
+      expiresAt: { type: Date, select: false },
+      lastSentAt: { type: Date, select: false },
+    },
+    // OTP state for the forgot-password flow. Separate from emailVerification
+    // so an in-progress signup verification and a password reset never collide.
+    passwordReset: {
+      codeHash: { type: String, select: false },
+      expiresAt: { type: Date, select: false },
+      lastSentAt: { type: Date, select: false },
+    },
   },
   {
     timestamps: true,

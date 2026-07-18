@@ -315,13 +315,14 @@ exports.searchExpenses = async (req, res, next) => {
     if (!q) {
       return res.status(400).json({ success: false, message: 'Search query is required' });
     }
+    const safeQ = escapeRegex(q);
     const expenses = await Expense.find({
       userId: req.user._id,
       $or: [
-        { title: { $regex: q, $options: 'i' } },
-        { notes: { $regex: q, $options: 'i' } },
-        { category: { $regex: q, $options: 'i' } },
-        { tags: { $in: [new RegExp(q, 'i')] } },
+        { title: { $regex: safeQ, $options: 'i' } },
+        { notes: { $regex: safeQ, $options: 'i' } },
+        { category: { $regex: safeQ, $options: 'i' } },
+        { tags: { $in: [new RegExp(safeQ, 'i')] } },
       ],
     })
       .sort('-date')

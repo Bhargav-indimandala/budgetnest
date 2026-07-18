@@ -34,6 +34,7 @@ const seed = async () => {
     monthlyBudget: 12000,
     currency: 'INR',
     theme: 'dark',
+    isVerified: true,
   });
 
   const now = new Date();

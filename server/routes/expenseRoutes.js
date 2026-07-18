@@ -23,7 +23,7 @@ router.route('/')
 
 router.route('/:id')
   .get(objectIdRule, validate, getExpense)
-  .put(objectIdRule, upload.single('attachment'), updateExpense)
+  .put(objectIdRule, upload.single('attachment'), expenseRules, validate, updateExpense)
   .delete(objectIdRule, validate, deleteExpense);
 
 router.post('/:id/duplicate', objectIdRule, validate, duplicateExpense);
