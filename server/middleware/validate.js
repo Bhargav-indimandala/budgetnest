@@ -1,5 +1,4 @@
 const { validationResult, body, param, query } = require('express-validator');
-const { getISTDayRangeUTC } = require('../utils/dateUtils');
 
 // Middleware to check validation results
 const validate = (req, res, next) => {
@@ -55,25 +54,6 @@ const changePasswordRules = [
   body('newPassword').isLength({ min: 6 }).withMessage('New password must be at least 6 characters'),
 ];
 
-const verifyEmailRules = [
-  body('email').trim().isEmail().withMessage('Valid email is required').normalizeEmail(),
-  body('otp').trim().isLength({ min: 6, max: 6 }).withMessage('Enter the 6-digit code').isNumeric(),
-];
-
-const resendOtpRules = [
-  body('email').trim().isEmail().withMessage('Valid email is required').normalizeEmail(),
-];
-
-const forgotPasswordRules = [
-  body('email').trim().isEmail().withMessage('Valid email is required').normalizeEmail(),
-];
-
-const resetPasswordRules = [
-  body('email').trim().isEmail().withMessage('Valid email is required').normalizeEmail(),
-  body('otp').trim().isLength({ min: 6, max: 6 }).withMessage('Enter the 6-digit code').isNumeric(),
-  body('newPassword').isLength({ min: 6 }).withMessage('New password must be at least 6 characters'),
-];
-
 // Expense validation rules
 const expenseRules = [
   body('title').trim().notEmpty().withMessage('Title is required').isLength({ max: 100 }),
@@ -85,8 +65,9 @@ const expenseRules = [
   body('date').custom((value, { req }) => {
     if (!value) return true;
     if (req.body.isPlanned === true || req.body.isPlanned === 'true') return true;
-    const { endUTC: endOfTodayIST } = getISTDayRangeUTC();
-    if (new Date(value) > endOfTodayIST) {
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+    if (new Date(value) > endOfToday) {
       throw new Error('Date cannot be in the future unless marked as a planned expense');
     }
     return true;
@@ -151,10 +132,6 @@ module.exports = {
   registerRules,
   loginRules,
   changePasswordRules,
-  verifyEmailRules,
-  resendOtpRules,
-  forgotPasswordRules,
-  resetPasswordRules,
   expenseRules,
   budgetRules,
   assetRules,

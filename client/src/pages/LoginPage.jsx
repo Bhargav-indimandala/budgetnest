@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff, Leaf, Mail, Lock } from 'lucide-react';
@@ -8,7 +8,6 @@ import toast from 'react-hot-toast';
 
 const LoginPage = () => {
   const { login, isAuthenticated, loading } = useAuth();
-  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [wakingUp, setWakingUp] = useState(false);
@@ -24,9 +23,6 @@ const LoginPage = () => {
     } catch (error) {
       if (error.code === 'ECONNABORTED') {
         toast.error('Server is taking longer than usual to respond. Please try again in a few seconds.');
-      } else if (error.response?.data?.needsVerification) {
-        toast.error('Please verify your email first — sending you to the verification screen');
-        navigate('/verify-email', { state: { email: error.response.data.email } });
       } else {
         toast.error(error.response?.data?.message || 'Login failed');
       }
@@ -103,11 +99,6 @@ const LoginPage = () => {
                 </button>
               </div>
               {errors.password && <p className="text-xs text-red-400 mt-1">{errors.password.message}</p>}
-              <div className="text-right mt-1.5">
-                <Link to="/forgot-password" className="text-xs text-primary-400 hover:text-primary-300 transition-colors">
-                  Forgot password?
-                </Link>
-              </div>
             </div>
 
             <button

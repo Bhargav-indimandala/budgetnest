@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff, Leaf, Mail, Lock, User } from 'lucide-react';
@@ -8,7 +8,6 @@ import toast from 'react-hot-toast';
 
 const RegisterPage = () => {
   const { register: registerUser, isAuthenticated, loading } = useAuth();
-  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [wakingUp, setWakingUp] = useState(false);
@@ -20,9 +19,7 @@ const RegisterPage = () => {
     setSubmitting(true);
     const wakeTimer = setTimeout(() => setWakingUp(true), 4000);
     try {
-      const result = await registerUser(data.name, data.email, data.password);
-      toast.success('Account created — check your email for a verification code');
-      navigate('/verify-email', { state: { email: result.email } });
+      await registerUser(data.name, data.email, data.password);
     } catch (error) {
       if (error.code === 'ECONNABORTED') {
         toast.error('Server is taking longer than usual to respond. Please try again in a few seconds.');
