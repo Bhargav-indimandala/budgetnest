@@ -529,6 +529,11 @@ const ExpensesPage = () => {
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate flex items-center gap-1.5">
                     {expense.title}
+                    {expense.isPlanned && (
+                      <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-500/15 px-1.5 py-0.5 rounded-full flex-shrink-0">
+                        Planned
+                      </span>
+                    )}
                     {expense.quantity > 1 && (
                       <span className="text-[10px] font-semibold text-primary-600 dark:text-primary-400 bg-primary-100 dark:bg-primary-500/15 px-1.5 py-0.5 rounded-full flex-shrink-0">
                         x{expense.quantity}

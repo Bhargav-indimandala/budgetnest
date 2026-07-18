@@ -27,6 +27,7 @@ exports.getCurrentBudget = async (req, res, next) => {
 
     const expenses = await Expense.find({
       userId: req.user._id,
+      isPlanned: { $ne: true },
       date: { $gte: startOfMonth, $lte: endOfMonth },
     });
 
@@ -109,6 +110,7 @@ exports.getBudgetHistory = async (req, res, next) => {
 
         const expenses = await Expense.find({
           userId: req.user._id,
+          isPlanned: { $ne: true },
           date: { $gte: startOfMonth, $lte: endOfMonth },
         });
 
@@ -153,6 +155,7 @@ exports.getCategoryBudget = async (req, res, next) => {
 
     const expenses = await Expense.find({
       userId: req.user._id,
+      isPlanned: { $ne: true },
       category: req.params.category,
       date: { $gte: startOfMonth, $lte: endOfMonth },
     }).sort('-date');

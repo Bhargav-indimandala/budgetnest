@@ -12,6 +12,7 @@ exports.getMonthlyReport = async (req, res, next) => {
 
     const expenses = await Expense.find({
       userId: req.user._id,
+      isPlanned: { $ne: true },
       date: { $gte: startOfMonth, $lte: endOfMonth },
     }).sort('-date');
 
@@ -86,6 +87,7 @@ exports.getWeeklyReport = async (req, res, next) => {
 
     const expenses = await Expense.find({
       userId: req.user._id,
+      isPlanned: { $ne: true },
       date: { $gte: startOfWeek, $lte: endOfWeek },
     }).sort('-date');
 
@@ -133,6 +135,7 @@ exports.getCategoryReport = async (req, res, next) => {
 
       const expenses = await Expense.find({
         userId: req.user._id,
+        isPlanned: { $ne: true },
         category,
         date: { $gte: startOfMonth, $lte: endOfMonth },
       });

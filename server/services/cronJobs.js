@@ -54,6 +54,7 @@ const runBudgetCheck = async () => {
     for (const budget of budgets) {
       const expenses = await Expense.find({
         userId: budget.userId,
+        isPlanned: { $ne: true },
         date: { $gte: startOfMonth, $lte: endOfMonth },
       });
 
@@ -110,6 +111,7 @@ async function runDailyReminderCheck() {
 
       const hasExpenseToday = await Expense.exists({
         userId: user._id,
+        isPlanned: { $ne: true },
         date: { $gte: startUTC, $lte: endUTC },
       });
       if (hasExpenseToday) continue;

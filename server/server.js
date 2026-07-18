@@ -68,24 +68,28 @@ app.use(errorHandler);
 
 // Cron jobs (only reliable while the process stays awake — see docs/DEPLOYMENT.md
 // for the free external-scheduler workaround on Render's free tier)
-// Process recurring expenses daily at midnight
+// All schedules below are explicitly pinned to IST (Asia/Kolkata) — without
+// this, node-cron interprets "9 PM" etc. in the server's own timezone, which
+// on Render is UTC, silently firing everything 5.5 hours off from what users
+// in India actually expect.
+// Process recurring expenses daily at midnight IST
 cron.schedule('0 0 * * *', async () => {
   console.log('[Cron] Processing recurring expenses...');
   await runRecurringCheck();
-});
+}, { timezone: 'Asia/Kolkata' });
 
-// Check budget alerts daily at 9 PM
+// Check budget alerts daily at 9 PM IST
 cron.schedule('0 21 * * *', async () => {
   console.log('[Cron] Checking budget alerts...');
   await runBudgetCheck();
-});
+}, { timezone: 'Asia/Kolkata' });
 
 // Check "no expense logged today" reminders every hour — the function itself
 // only sends once per user per day, at/after their configured reminderTime
 cron.schedule('0 * * * *', async () => {
   console.log('[Cron] Checking daily expense reminders...');
   await runDailyReminderCheck();
-});
+}, { timezone: 'Asia/Kolkata' });
 
 // Create uploads directory
 const fs = require('fs');

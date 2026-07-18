@@ -62,6 +62,17 @@ const expenseRules = [
   body('category').trim().notEmpty().withMessage('Category is required'),
   body('paymentMethod').optional().isIn(['Cash', 'UPI', 'Card', 'Online', 'Other']),
   body('date').optional().isISO8601().withMessage('Invalid date format'),
+  body('date').custom((value, { req }) => {
+    if (!value) return true;
+    if (req.body.isPlanned === true || req.body.isPlanned === 'true') return true;
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+    if (new Date(value) > endOfToday) {
+      throw new Error('Date cannot be in the future unless marked as a planned expense');
+    }
+    return true;
+  }),
+  body('isPlanned').optional().isBoolean(),
   body('notes').optional().trim().isLength({ max: 500 }),
   body('isRecurring').optional().isBoolean(),
   body('tags').optional().isArray(),

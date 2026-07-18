@@ -29,10 +29,10 @@ exports.getDashboard = async (req, res, next) => {
     // Parallel queries
     const [monthlyExpenses, todayExpenses, weeklyExpenses, prevMonthExpenses, budget] =
       await Promise.all([
-        Expense.find({ userId: req.user._id, date: { $gte: startOfMonth, $lte: endOfMonth } }),
-        Expense.find({ userId: req.user._id, date: { $gte: today, $lt: tomorrow } }),
-        Expense.find({ userId: req.user._id, date: { $gte: startOfWeek, $lte: now } }),
-        Expense.find({ userId: req.user._id, date: { $gte: startOfPrevMonth, $lte: endOfPrevMonth } }),
+        Expense.find({ userId: req.user._id, isPlanned: { $ne: true }, date: { $gte: startOfMonth, $lte: endOfMonth } }),
+        Expense.find({ userId: req.user._id, isPlanned: { $ne: true }, date: { $gte: today, $lt: tomorrow } }),
+        Expense.find({ userId: req.user._id, isPlanned: { $ne: true }, date: { $gte: startOfWeek, $lte: now } }),
+        Expense.find({ userId: req.user._id, isPlanned: { $ne: true }, date: { $gte: startOfPrevMonth, $lte: endOfPrevMonth } }),
         Budget.findOne({ userId: req.user._id, month, year }),
       ]);
 
@@ -111,6 +111,7 @@ exports.getMonthlyAnalytics = async (req, res, next) => {
 
       const expenses = await Expense.find({
         userId: req.user._id,
+        isPlanned: { $ne: true },
         date: { $gte: startOfMonth, $lte: endOfMonth },
       });
 
@@ -156,6 +157,7 @@ exports.getWeeklyAnalytics = async (req, res, next) => {
 
       const expenses = await Expense.find({
         userId: req.user._id,
+        isPlanned: { $ne: true },
         date: { $gte: startOfWeek, $lte: endOfWeek },
       });
 
@@ -191,6 +193,7 @@ exports.getDailyTrend = async (req, res, next) => {
 
       const expenses = await Expense.find({
         userId: req.user._id,
+        isPlanned: { $ne: true },
         date: { $gte: day, $lt: nextDay },
       });
 
@@ -227,8 +230,8 @@ exports.getInsights = async (req, res, next) => {
     const endOfPrevMonth = new Date(prevYear, prevMonth, 0, 23, 59, 59);
 
     const [currentExpenses, prevExpenses, budget] = await Promise.all([
-      Expense.find({ userId: req.user._id, date: { $gte: startOfMonth, $lte: endOfMonth } }),
-      Expense.find({ userId: req.user._id, date: { $gte: startOfPrevMonth, $lte: endOfPrevMonth } }),
+      Expense.find({ userId: req.user._id, isPlanned: { $ne: true }, date: { $gte: startOfMonth, $lte: endOfMonth } }),
+      Expense.find({ userId: req.user._id, isPlanned: { $ne: true }, date: { $gte: startOfPrevMonth, $lte: endOfPrevMonth } }),
       Budget.findOne({ userId: req.user._id, month, year }),
     ]);
 
@@ -339,6 +342,7 @@ exports.getCategoryBreakdown = async (req, res, next) => {
 
     const expenses = await Expense.find({
       userId: req.user._id,
+      isPlanned: { $ne: true },
       date: { $gte: startOfMonth, $lte: endOfMonth },
     });
 
@@ -377,6 +381,7 @@ exports.getHeatmap = async (req, res, next) => {
 
     const expenses = await Expense.find({
       userId: req.user._id,
+      isPlanned: { $ne: true },
       date: { $gte: startDate, $lte: now },
     });
 

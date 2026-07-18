@@ -56,6 +56,13 @@ const expenseSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    // Planned/upcoming expenses (e.g. "I'll spend ₹500 tomorrow") can have a
+    // future date and are excluded from all spending totals (today/week/month/
+    // budget usage) until marked as actually spent (isPlanned set back to false).
+    isPlanned: {
+      type: Boolean,
+      default: false,
+    },
     attachment: {
       type: String,
       default: '',

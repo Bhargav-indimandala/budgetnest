@@ -15,6 +15,7 @@ const ExpenseForm = ({ onSubmit, onCancel, initialData = null, loading = false }
       notes: initialData.notes || '',
       tags: (initialData.tags || []).join(', '),
       location: initialData.location || '',
+      isPlanned: initialData.isPlanned || false,
     } : {
       title: '',
       amount: '',
@@ -25,10 +26,12 @@ const ExpenseForm = ({ onSubmit, onCancel, initialData = null, loading = false }
       notes: '',
       tags: '',
       location: '',
+      isPlanned: false,
     },
   });
 
   const selectedCategory = watch('category');
+  const isPlanned = watch('isPlanned');
 
   const processSubmit = (data) => {
     const processed = {
@@ -36,6 +39,7 @@ const ExpenseForm = ({ onSubmit, onCancel, initialData = null, loading = false }
       amount: parseFloat(data.amount),
       quantity: data.quantity ? parseInt(data.quantity, 10) : 1,
       tags: data.tags ? data.tags.split(',').map((t) => t.trim()).filter(Boolean) : [],
+      isPlanned: !!data.isPlanned,
     };
     onSubmit(processed);
   };
@@ -84,11 +88,27 @@ const ExpenseForm = ({ onSubmit, onCancel, initialData = null, loading = false }
           <label className="label">Date</label>
           <input
             type="date"
+            max={isPlanned ? undefined : formatDateInput(new Date())}
             {...register('date', { required: 'Date is required' })}
             className="input-field"
           />
           {errors.date && <p className="text-xs text-red-400 mt-1">{errors.date.message}</p>}
         </div>
+      </div>
+
+      {/* Planned expense toggle */}
+      <div className="flex items-start gap-2 bg-gray-50 dark:bg-white/5 rounded-xl p-3">
+        <input
+          type="checkbox"
+          id="isPlanned"
+          {...register('isPlanned')}
+          className="w-4 h-4 mt-0.5 rounded accent-primary-500 flex-shrink-0"
+        />
+        <label htmlFor="isPlanned" className="text-xs text-gray-600 dark:text-gray-300">
+          <span className="font-medium text-gray-800 dark:text-gray-200 block">This is a planned/upcoming expense</span>
+          Lets you pick a future date. Won't count toward your spent totals or budget until you edit it
+          later and untick this, once you've actually paid it.
+        </label>
       </div>
 
       {/* Category Quick Select */}
