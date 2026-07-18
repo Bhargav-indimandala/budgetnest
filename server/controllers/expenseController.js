@@ -226,6 +226,7 @@ exports.mergeExpenses = async (req, res, next) => {
       amount: e.amount,
       quantity: e.quantity || 1,
       date: e.date,
+      paymentMethod: e.paymentMethod,
     }));
 
     primary.amount = totalAmount;
@@ -236,6 +237,45 @@ exports.mergeExpenses = async (req, res, next) => {
     await Expense.deleteMany({ _id: { $in: rest.map((e) => e._id) } });
 
     res.json({ success: true, expense: primary, mergedCount: expenses.length });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Undo one item from a merge — recreates it as its own standalone
+//          expense again, and subtracts its amount/quantity back out of the
+//          combined entry. Can be called repeatedly to fully unwind a merge.
+// @route   POST /api/expenses/:id/unmerge-item
+// @body    { historyIndex }
+exports.unmergeItem = async (req, res, next) => {
+  try {
+    const { historyIndex } = req.body;
+    const primary = await Expense.findOne({ _id: req.params.id, userId: req.user._id });
+    if (!primary) {
+      return res.status(404).json({ success: false, message: 'Expense not found' });
+    }
+
+    const entry = primary.mergeHistory[historyIndex];
+    if (!entry) {
+      return res.status(400).json({ success: false, message: 'That merged item was not found' });
+    }
+
+    const restored = await Expense.create({
+      userId: req.user._id,
+      title: entry.title,
+      category: entry.category,
+      amount: entry.amount,
+      quantity: entry.quantity || 1,
+      date: entry.date,
+      paymentMethod: entry.paymentMethod || 'Cash',
+    });
+
+    primary.amount = Math.max(0.01, primary.amount - entry.amount);
+    primary.quantity = Math.max(1, (primary.quantity || 1) - (entry.quantity || 1));
+    primary.mergeHistory = primary.mergeHistory.filter((_, i) => i !== Number(historyIndex));
+    await primary.save();
+
+    res.json({ success: true, primary, restored });
   } catch (error) {
     next(error);
   }

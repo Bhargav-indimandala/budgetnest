@@ -164,6 +164,17 @@ const ExpensesPage = () => {
     setDuplicateCheck(null);
   };
 
+  const handleUnmergeItem = async (expenseId, historyIndex) => {
+    try {
+      await api.post(`/expenses/${expenseId}/unmerge-item`, { historyIndex });
+      toast.success('Restored as a separate expense');
+      setViewMergeHistory(null);
+      fetchExpenses(pagination.page);
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to undo merge');
+    }
+  };
+
   const handleUpdate = async (formData) => {
     setFormLoading(true);
     try {
@@ -700,7 +711,7 @@ const ExpensesPage = () => {
               {viewMergeHistory.mergeHistory.map((h, i) => (
                 <div
                   key={i}
-                  className="flex items-center justify-between bg-gray-50 dark:bg-white/5 rounded-lg px-3 py-2"
+                  className="flex items-center justify-between bg-gray-50 dark:bg-white/5 rounded-lg px-3 py-2 gap-2"
                 >
                   <div className="min-w-0">
                     <p className="text-sm text-gray-800 dark:text-gray-200 truncate">{h.title}</p>
@@ -708,10 +719,19 @@ const ExpensesPage = () => {
                       {h.category} · {formatDate(h.date)}
                     </p>
                   </div>
-                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex-shrink-0 ml-3">
-                    {formatCurrency(h.amount)}
-                    {h.quantity > 1 ? ` (x${h.quantity})` : ''}
-                  </span>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                      {formatCurrency(h.amount)}
+                      {h.quantity > 1 ? ` (x${h.quantity})` : ''}
+                    </span>
+                    <button
+                      onClick={() => handleUnmergeItem(viewMergeHistory._id, i)}
+                      className="text-xs text-primary-600 dark:text-primary-400 hover:underline whitespace-nowrap"
+                      title="Restore this as its own separate expense again"
+                    >
+                      Undo
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

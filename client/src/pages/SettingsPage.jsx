@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
-  User, Wallet, Bell, Palette, Lock, Save, Sun, Moon, Star,
+  User, Wallet, Bell, Palette, Lock, Save, Sun, Moon, Star, ShieldAlert,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -18,10 +18,11 @@ const TABS = [
 ];
 
 const SettingsPage = () => {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, logoutAllDevices } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [activeTab, setActiveTab] = useState('profile');
   const [saving, setSaving] = useState(false);
+  const [loggingOutAll, setLoggingOutAll] = useState(false);
 
   const [profile, setProfile] = useState({
     name: user?.name || '',
@@ -126,6 +127,21 @@ const SettingsPage = () => {
       toast.error(error.response?.data?.message || 'Failed to change password');
     }
     setSaving(false);
+  };
+
+  const handleLogoutAllDevices = async () => {
+    const confirmed = window.confirm(
+      'This will log you out on every other device and browser. You will stay signed in here. Continue?'
+    );
+    if (!confirmed) return;
+
+    setLoggingOutAll(true);
+    try {
+      await logoutAllDevices();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to log out other sessions');
+    }
+    setLoggingOutAll(false);
   };
 
   return (
@@ -352,6 +368,23 @@ const SettingsPage = () => {
               <button onClick={changePassword} disabled={saving} className="btn-primary flex items-center gap-2">
                 <Lock size={16} /> {saving ? 'Updating...' : 'Change Password'}
               </button>
+
+              <div className="pt-5 mt-5 border-t border-gray-100 dark:border-white/5">
+                <h3 className="text-sm font-semibold text-gray-800 dark:text-white flex items-center gap-2">
+                  <ShieldAlert size={16} className="text-amber-500" /> Active Sessions
+                </h3>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 mb-3">
+                  Lost a device, or logged in somewhere you don't recognize? This immediately
+                  signs you out everywhere else, without changing your password. This device stays signed in.
+                </p>
+                <button
+                  onClick={handleLogoutAllDevices}
+                  disabled={loggingOutAll}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all disabled:opacity-60"
+                >
+                  <ShieldAlert size={16} /> {loggingOutAll ? 'Logging out other sessions...' : 'Log out of all other devices'}
+                </button>
+              </div>
             </>
           )}
         </motion.div>

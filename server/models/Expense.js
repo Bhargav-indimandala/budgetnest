@@ -70,6 +70,7 @@ const expenseSchema = new mongoose.Schema(
           amount: Number,
           quantity: Number,
           date: Date,
+          paymentMethod: String,
         },
       ],
       default: [],

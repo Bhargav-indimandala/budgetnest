@@ -70,6 +70,14 @@ const userSchema = new mongoose.Schema(
       type: [String],
       default: ['Food', 'Transport', 'Rent'],
     },
+    // Incremented to instantly invalidate all previously issued JWTs
+    // (e.g. on password change or "log out everywhere"), since JWTs
+    // can't otherwise be revoked before they naturally expire.
+    tokenVersion: {
+      type: Number,
+      default: 0,
+      select: false,
+    },
   },
   {
     timestamps: true,

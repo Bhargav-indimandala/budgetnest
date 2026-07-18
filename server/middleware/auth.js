@@ -17,7 +17,7 @@ const protect = async (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = await User.findById(decoded.id).select('-password');
+    req.user = await User.findById(decoded.id).select('-password +tokenVersion');
 
     if (!req.user) {
       return res.status(401).json({
@@ -25,6 +25,19 @@ const protect = async (req, res, next) => {
         message: 'User not found',
       });
     }
+
+    // If the user's tokenVersion has since been bumped (password change,
+    // logout-everywhere), this token was issued before that point and is
+    // now revoked even though its signature/expiry are still technically valid.
+    const tokenVersion = decoded.tokenVersion || 0;
+    if (tokenVersion !== req.user.tokenVersion) {
+      return res.status(401).json({
+        success: false,
+        message: 'Session expired, please log in again',
+      });
+    }
+
+    req.user.tokenVersion = undefined; // don't leak it onward to controllers/responses
 
     next();
   } catch (error) {

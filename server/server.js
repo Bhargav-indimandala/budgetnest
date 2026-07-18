@@ -10,7 +10,7 @@ const connectDB = require('./config/db');
 const errorHandler = require('./middleware/errorHandler');
 const { sanitizeInput } = require('./middleware/validate');
 const { apiLimiter, authLimiter } = require('./middleware/rateLimiter');
-const { runRecurringCheck, runBudgetCheck } = require('./services/cronJobs');
+const { runRecurringCheck, runBudgetCheck, runDailyReminderCheck } = require('./services/cronJobs');
 
 // Connect to database
 connectDB();
@@ -66,15 +66,25 @@ app.get('/api/health', (req, res) => {
 // Error handler
 app.use(errorHandler);
 
-// Cron jobs
+// Cron jobs (only reliable while the process stays awake — see docs/DEPLOYMENT.md
+// for the free external-scheduler workaround on Render's free tier)
+// Process recurring expenses daily at midnight
 cron.schedule('0 0 * * *', async () => {
   console.log('[Cron] Processing recurring expenses...');
   await runRecurringCheck();
 });
 
+// Check budget alerts daily at 9 PM
 cron.schedule('0 21 * * *', async () => {
   console.log('[Cron] Checking budget alerts...');
   await runBudgetCheck();
+});
+
+// Check "no expense logged today" reminders every hour — the function itself
+// only sends once per user per day, at/after their configured reminderTime
+cron.schedule('0 * * * *', async () => {
+  console.log('[Cron] Checking daily expense reminders...');
+  await runDailyReminderCheck();
 });
 
 // Create uploads directory

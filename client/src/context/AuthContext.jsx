@@ -68,13 +68,23 @@ export const AuthProvider = ({ children }) => {
     toast.success('Logged out successfully');
   }, []);
 
+  // Invalidates every previously issued token (server bumps tokenVersion),
+  // then swaps in the fresh token returned for this session so we don't
+  // also log ourselves out.
+  const logoutAllDevices = useCallback(async () => {
+    const { data } = await api.post('/auth/logout-all');
+    setToken(data.token);
+    toast.success('Logged out of all other sessions');
+    return data;
+  }, []);
+
   const updateUser = useCallback((updatedUser) => {
     setUser(updatedUser);
   }, []);
 
   return (
     <AuthContext.Provider
-      value={{ user, token, loading, login, register, logout, updateUser, isAuthenticated: !!user }}
+      value={{ user, token, loading, login, register, logout, logoutAllDevices, updateUser, isAuthenticated: !!user }}
     >
       {children}
     </AuthContext.Provider>
