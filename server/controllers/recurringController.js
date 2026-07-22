@@ -63,10 +63,15 @@ exports.deleteRecurringExpense = async (req, res, next) => {
 // Process due recurring expenses (called by cron)
 exports.processDueRecurring = async () => {
   try {
+    const { getISTDayRangeUTC } = require('../utils/dateUtils');
     const now = new Date();
+    // Compare against the END of today in IST, not raw UTC "now" — otherwise
+    // an item due "today" (IST calendar date) isn't found until 5:30 AM IST,
+    // since that's when the UTC clock catches up to IST midnight.
+    const { endUTC: endOfTodayIST } = getISTDayRangeUTC();
     const dueExpenses = await RecurringExpense.find({
       isActive: true,
-      nextDueDate: { $lte: now },
+      nextDueDate: { $lte: endOfTodayIST },
     });
 
     for (const recurring of dueExpenses) {

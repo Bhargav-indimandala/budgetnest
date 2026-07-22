@@ -59,7 +59,7 @@ const ExpenseForm = ({ onSubmit, onCancel, initialData = null, loading = false }
       </div>
 
       {/* Amount + Quantity + Date Row */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         <div>
           <label className="label">Amount (₹)</label>
           <input
@@ -84,7 +84,7 @@ const ExpenseForm = ({ onSubmit, onCancel, initialData = null, loading = false }
             className="input-field"
           />
         </div>
-        <div>
+        <div className="col-span-2 sm:col-span-1">
           <label className="label">Date</label>
           <input
             type="date"

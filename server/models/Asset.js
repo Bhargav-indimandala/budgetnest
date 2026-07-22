@@ -44,6 +44,14 @@ const assetSchema = new mongoose.Schema(
       trim: true,
       maxlength: [500, 'Notes cannot exceed 500 characters'],
     },
+    // Links to the auto-created Expense record for this purchase, so it
+    // counts toward monthly spend/budget/analytics automatically while
+    // still being tracked separately here for lifetime/status tracking.
+    linkedExpenseId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Expense',
+      default: null,
+    },
   },
   {
     timestamps: true,

@@ -1,4 +1,19 @@
 const Grocery = require('../models/Grocery');
+const Expense = require('../models/Expense');
+
+// Grocery categories map onto sensible Expense categories so they group
+// naturally in analytics/reports alongside manually-logged food expenses.
+const GROCERY_TO_EXPENSE_CATEGORY = {
+  Grains: 'Rice',
+  Dairy: 'Milk',
+  Vegetables: 'Vegetables',
+  Fruits: 'Food',
+  Spices: 'Food',
+  Oil: 'Oil',
+  Snacks: 'Food',
+  Beverages: 'Food',
+  General: 'Food',
+};
 
 // @desc    Get all groceries
 // @route   GET /api/groceries
@@ -15,7 +30,9 @@ exports.getGroceries = async (req, res, next) => {
   }
 };
 
-// @desc    Create grocery item
+// @desc    Create grocery item — also creates a linked Expense so this
+//          purchase counts toward monthly spend/budget/analytics, while
+//          still being tracked here separately for inventory purposes.
 // @route   POST /api/groceries
 exports.createGrocery = async (req, res, next) => {
   try {
@@ -24,13 +41,27 @@ exports.createGrocery = async (req, res, next) => {
       req.body.estimatedRemainingQty = req.body.quantity;
     }
     const grocery = await Grocery.create(req.body);
+
+    const expense = await Expense.create({
+      userId: req.user._id,
+      title: grocery.name,
+      amount: grocery.price,
+      category: GROCERY_TO_EXPENSE_CATEGORY[grocery.category] || 'Food',
+      paymentMethod: 'Cash',
+      date: grocery.purchaseDate,
+      notes: 'Auto-added from Grocery tracker',
+      tags: ['grocery'],
+    });
+    grocery.linkedExpenseId = expense._id;
+    await grocery.save();
+
     res.status(201).json({ success: true, grocery });
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Update grocery
+// @desc    Update grocery — keeps the linked Expense's amount/date/title in sync
 // @route   PUT /api/groceries/:id
 exports.updateGrocery = async (req, res, next) => {
   try {
@@ -42,19 +73,33 @@ exports.updateGrocery = async (req, res, next) => {
     if (!grocery) {
       return res.status(404).json({ success: false, message: 'Grocery item not found' });
     }
+
+    if (grocery.linkedExpenseId) {
+      await Expense.findByIdAndUpdate(grocery.linkedExpenseId, {
+        title: grocery.name,
+        amount: grocery.price,
+        category: GROCERY_TO_EXPENSE_CATEGORY[grocery.category] || 'Food',
+        date: grocery.purchaseDate,
+      });
+    }
+
     res.json({ success: true, grocery });
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Delete grocery
+// @desc    Delete grocery — also removes its linked Expense so spend totals
+//          stay accurate
 // @route   DELETE /api/groceries/:id
 exports.deleteGrocery = async (req, res, next) => {
   try {
     const grocery = await Grocery.findOneAndDelete({ _id: req.params.id, userId: req.user._id });
     if (!grocery) {
       return res.status(404).json({ success: false, message: 'Grocery item not found' });
+    }
+    if (grocery.linkedExpenseId) {
+      await Expense.findByIdAndDelete(grocery.linkedExpenseId);
     }
     res.json({ success: true, message: 'Grocery item deleted' });
   } catch (error) {

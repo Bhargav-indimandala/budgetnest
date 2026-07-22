@@ -44,6 +44,14 @@ const grocerySchema = new mongoose.Schema(
       default: 'General',
       enum: ['Grains', 'Dairy', 'Vegetables', 'Fruits', 'Spices', 'Oil', 'Snacks', 'Beverages', 'General'],
     },
+    // Links to the auto-created Expense record for this purchase, so grocery
+    // spending flows into monthly totals/budget/analytics automatically while
+    // still being tracked separately here for inventory purposes.
+    linkedExpenseId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Expense',
+      default: null,
+    },
   },
   {
     timestamps: true,

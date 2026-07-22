@@ -2,7 +2,7 @@ export const CATEGORIES = [
   'Rent', 'Food', 'Vegetables', 'Milk', 'Curd', 'Eggs', 'Chicken',
   'Rice', 'Oil', 'Electricity', 'Water', 'Internet', 'Mobile Recharge',
   'Transport', 'Auto', 'Medicine', 'Entertainment', 'Shopping',
-  'Emergency', 'Other',
+  'Emergency', 'Assets', 'Other',
 ];
 
 export const PAYMENT_METHODS = ['Cash', 'UPI', 'Card', 'Online', 'Other'];
@@ -26,7 +26,7 @@ export const CATEGORY_COLORS = {
   Oil: '#eab308', Electricity: '#f97316', Water: '#06b6d4', Internet: '#8b5cf6',
   'Mobile Recharge': '#ec4899', Transport: '#14b8a6', Auto: '#f43f5e',
   Medicine: '#10b981', Entertainment: '#a855f7', Shopping: '#3b82f6',
-  Emergency: '#dc2626', Other: '#6b7280',
+  Emergency: '#dc2626', Assets: '#7c3aed', Other: '#6b7280',
 };
 
 // Extra distinct colors for custom/user-typed categories that aren't in the preset list above
@@ -54,5 +54,5 @@ export const CATEGORY_ICONS = {
   Rent: '🏠', Food: '🍽️', Vegetables: '🥬', Milk: '🥛', Curd: '🫙', Eggs: '🥚',
   Chicken: '🍗', Rice: '🍚', Oil: '🫗', Electricity: '⚡', Water: '💧',
   Internet: '📶', 'Mobile Recharge': '📱', Transport: '🚌', Auto: '🛺',
-  Medicine: '💊', Entertainment: '🎬', Shopping: '🛒', Emergency: '🚨', Other: '📦',
+  Medicine: '💊', Entertainment: '🎬', Shopping: '🛒', Emergency: '🚨', Assets: '🪑', Other: '📦',
 };
