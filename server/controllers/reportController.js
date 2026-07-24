@@ -2,6 +2,75 @@ const Expense = require('../models/Expense');
 const Budget = require('../models/Budget');
 const Report = require('../models/Report');
 
+// @desc    Get yearly report — every calendar month (Jan-Dec) of the given
+//          year with its total, plus a grand total for the whole year.
+//          Uses an aggregation (not 12 separate queries) for efficiency.
+// @route   GET /api/reports/yearly/:year
+exports.getYearlyReport = async (req, res, next) => {
+  try {
+    const year = parseInt(req.params.year);
+    const startOfYear = new Date(year, 0, 1);
+    const endOfYear = new Date(year, 11, 31, 23, 59, 59, 999);
+
+    const results = await Expense.aggregate([
+      {
+        $match: {
+          userId: req.user._id,
+          isPlanned: { $ne: true },
+          date: { $gte: startOfYear, $lte: endOfYear },
+        },
+      },
+      {
+        $group: {
+          _id: { $month: '$date' },
+          total: { $sum: '$amount' },
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const totalsByMonth = {};
+    results.forEach((r) => {
+      totalsByMonth[r._id] = { total: r.total, count: r.count };
+    });
+
+    const MONTH_NAMES = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December',
+    ];
+
+    const months = MONTH_NAMES.map((label, i) => {
+      const monthNum = i + 1; // Mongo's $month is 1-indexed
+      const entry = totalsByMonth[monthNum];
+      return {
+        month: monthNum,
+        label,
+        total: entry ? entry.total : 0,
+        count: entry ? entry.count : 0,
+      };
+    });
+
+    const yearTotal = months.reduce((sum, m) => sum + m.total, 0);
+    const yearTransactionCount = months.reduce((sum, m) => sum + m.count, 0);
+    const highestMonth = months.reduce((max, m) => (m.total > max.total ? m : max), months[0]);
+    const monthsWithSpending = months.filter((m) => m.count > 0).length;
+
+    res.json({
+      success: true,
+      report: {
+        year,
+        months,
+        yearTotal,
+        yearTransactionCount,
+        avgMonthly: monthsWithSpending > 0 ? Math.round(yearTotal / monthsWithSpending) : 0,
+        highestMonth: highestMonth && highestMonth.total > 0 ? highestMonth : null,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Get monthly report
 // @route   GET /api/reports/monthly/:year/:month
 exports.getMonthlyReport = async (req, res, next) => {

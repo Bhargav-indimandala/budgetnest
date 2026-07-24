@@ -34,9 +34,13 @@ const ReportsPage = () => {
 
   const fetchReport = async () => {
     setLoading(true);
+    setReport(null); // clear stale data from a different report type before fetching
     try {
       if (reportType === 'monthly') {
         const { data } = await api.get(`/reports/monthly/${year}/${month}`);
+        setReport(data.report);
+      } else if (reportType === 'yearly') {
+        const { data } = await api.get(`/reports/yearly/${year}`);
         setReport(data.report);
       } else {
         const { data } = await api.get('/reports/weekly');
@@ -101,6 +105,34 @@ const ReportsPage = () => {
       toast.error('Failed to export PDF');
     }
     setExporting(false);
+  };
+
+  const exportYearlyPDF = () => {
+    if (!report) return;
+    const doc = new jsPDF();
+    doc.setFontSize(18);
+    doc.text('BudgetNest — Yearly Overview', 14, 18);
+    doc.setFontSize(10);
+    doc.setTextColor(120);
+    doc.text(String(report.year), 14, 25);
+
+    autoTable(doc, {
+      startY: 32,
+      head: [['Month', 'Total Spent', 'Transactions']],
+      body: [
+        ...report.months.map((m) => [m.label, formatCurrency(m.total), String(m.count)]),
+        ['Total', formatCurrency(report.yearTotal), String(report.yearTransactionCount)],
+      ],
+      headStyles: { fillColor: [99, 102, 241] },
+      didParseCell: (data) => {
+        if (data.row.index === report.months.length) {
+          data.cell.styles.fontStyle = 'bold';
+        }
+      },
+    });
+
+    doc.save(`budgetnest-yearly-${report.year}-${Date.now()}.pdf`);
+    toast.success('Yearly report exported');
   };
 
   const exportReportPDF = () => {
@@ -176,10 +208,10 @@ const ReportsPage = () => {
       {/* Report Type Toggle */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex gap-2">
-          {[{ label: 'Monthly', value: 'monthly' }, { label: 'Weekly', value: 'weekly' }].map((opt) => (
+          {[{ label: 'Monthly', value: 'monthly' }, { label: 'Weekly', value: 'weekly' }, { label: 'Yearly', value: 'yearly' }].map((opt) => (
             <button
               key={opt.value}
-              onClick={() => setReportType(opt.value)}
+              onClick={() => { setReport(null); setReportType(opt.value); }}
               className={`px-4 py-2 rounded-xl text-sm font-medium transition-all
                 ${reportType === opt.value ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/25' : 'bg-gray-100 dark:bg-white/5 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/10'}`}
             >
@@ -188,23 +220,25 @@ const ReportsPage = () => {
           ))}
         </div>
 
-        {reportType === 'monthly' && (
+        {(reportType === 'monthly' || reportType === 'yearly') && (
           <div className="flex gap-2 ml-auto">
-            <select
-              value={month}
-              onChange={(e) => setMonth(parseInt(e.target.value))}
-              className="input-field !py-2 !w-auto"
-            >
-              {MONTH_NAMES.map((m, i) => (
-                <option key={m} value={i + 1}>{m}</option>
-              ))}
-            </select>
+            {reportType === 'monthly' && (
+              <select
+                value={month}
+                onChange={(e) => setMonth(parseInt(e.target.value))}
+                className="input-field !py-2 !w-auto"
+              >
+                {MONTH_NAMES.map((m, i) => (
+                  <option key={m} value={i + 1}>{m}</option>
+                ))}
+              </select>
+            )}
             <select
               value={year}
               onChange={(e) => setYear(parseInt(e.target.value))}
               className="input-field !py-2 !w-auto"
             >
-              {[now.getFullYear(), now.getFullYear() - 1].map((y) => (
+              {[now.getFullYear(), now.getFullYear() - 1, now.getFullYear() - 2].map((y) => (
                 <option key={y} value={y}>{y}</option>
               ))}
             </select>
@@ -212,7 +246,80 @@ const ReportsPage = () => {
         )}
       </div>
 
-      {!report || report.transactionCount === 0 ? (
+      {reportType === 'yearly' ? (
+        !report || report.yearTransactionCount === 0 ? (
+          <EmptyState
+            icon={FileText}
+            title="No data for this year"
+            description="Add some expenses to see a yearly overview here."
+          />
+        ) : (
+          <>
+            {/* Yearly Stats */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <StatCard icon={IndianRupee} label={`Total Spent in ${report.year}`} value={formatCurrency(report.yearTotal)} color="primary" delay={0} />
+              <StatCard icon={Receipt} label="Transactions" value={report.yearTransactionCount} color="accent" delay={1} />
+              <StatCard icon={TrendingUp} label="Avg per Active Month" value={formatCurrency(report.avgMonthly)} color="warning" delay={2} />
+              <StatCard
+                icon={Award}
+                label="Highest Month"
+                value={report.highestMonth ? `${report.highestMonth.label} · ${formatCurrency(report.highestMonth.total)}` : '—'}
+                color="danger"
+                delay={3}
+              />
+            </div>
+
+            {/* Month-by-month table with total at the end */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="glass-card overflow-x-auto"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold text-gray-800 dark:text-white">Month-by-Month Breakdown</h3>
+                <button onClick={exportYearlyPDF} className="text-xs text-primary-500 hover:text-primary-600 font-medium flex items-center gap-1">
+                  <Download size={13} /> Export This Report
+                </button>
+              </div>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-gray-400 dark:text-gray-500 border-b border-gray-100 dark:border-white/5">
+                    <th className="pb-2 font-medium">Month</th>
+                    <th className="pb-2 font-medium text-right">Transactions</th>
+                    <th className="pb-2 font-medium text-right">Total Spent</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(report.months || []).map((m) => {
+                    const pct = report.yearTotal ? Math.round((m.total / report.yearTotal) * 100) : 0;
+                    return (
+                      <tr key={m.month} className="border-b border-gray-50 dark:border-white/[0.02]">
+                        <td className="py-2.5 text-gray-800 dark:text-gray-200">{m.label}</td>
+                        <td className="py-2.5 text-right text-gray-500 dark:text-gray-400">{m.count || '—'}</td>
+                        <td className="py-2.5 text-right">
+                          <span className="font-medium text-gray-800 dark:text-white">{formatCurrency(m.total)}</span>
+                          {m.total > 0 && (
+                            <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">({pct}%)</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-gray-200 dark:border-white/10">
+                    <td className="py-3 font-semibold text-gray-800 dark:text-white">Total ({report.year})</td>
+                    <td className="py-3 text-right font-semibold text-gray-800 dark:text-white">{report.yearTransactionCount}</td>
+                    <td className="py-3 text-right font-bold text-primary-600 dark:text-primary-400 text-base">
+                      {formatCurrency(report.yearTotal)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </motion.div>
+          </>
+        )
+      ) : !report || report.transactionCount === 0 ? (
         <EmptyState
           icon={FileText}
           title="No data for this period"
