@@ -6,7 +6,7 @@ import {
   ChevronDown, X, CheckSquare, Square, Calendar, GitMerge,
 } from 'lucide-react';
 import api from '../services/api';
-import { formatCurrency, formatDate } from '../utils/formatters';
+import { formatCurrency, formatCurrencyForPDF, formatDate } from '../utils/formatters';
 import { CATEGORIES, PAYMENT_METHODS, CATEGORY_ICONS } from '../utils/constants';
 import Modal from '../components/common/Modal';
 import ExpenseForm from '../components/expenses/ExpenseForm';
@@ -300,13 +300,13 @@ const ExpensesPage = () => {
       doc.text('BudgetNest — Expense Report', 14, 22);
       doc.setFontSize(10);
       doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 30);
-      doc.text(`Total: Rs. ${data.data.total.toLocaleString()} | Count: ${data.data.count}`, 14, 36);
+      doc.text(`Total: ${formatCurrencyForPDF(data.data.total)} | Count: ${data.data.count}`, 14, 36);
 
       autoTable(doc, {
         startY: 42,
         head: [['Title', 'Amount', 'Category', 'Payment', 'Date']],
         body: data.data.expenses.map((e) => [
-          e.title, `Rs. ${e.amount}`, e.category, e.paymentMethod, e.date,
+          e.title, formatCurrencyForPDF(e.amount), e.category, e.paymentMethod, e.date,
         ]),
         styles: { fontSize: 8 },
         headStyles: { fillColor: [99, 102, 241] },

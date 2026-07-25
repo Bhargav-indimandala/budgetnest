@@ -8,6 +8,17 @@ export const formatCurrency = (amount, currency = 'INR') => {
   })}`;
 };
 
+// jsPDF's built-in fonts (Helvetica etc.) don't include the ₹ glyph — it
+// silently renders as a broken/garbled character in exported PDFs. Use this
+// instead of formatCurrency specifically inside jsPDF text/table content;
+// the on-screen app keeps the real ₹ symbol everywhere else.
+export const formatCurrencyForPDF = (amount) => {
+  return `Rs. ${Number(amount || 0).toLocaleString('en-IN', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  })}`;
+};
+
 export const formatDate = (date) => {
   if (!date) return '';
   const d = new Date(date);

@@ -8,7 +8,7 @@ import Papa from 'papaparse';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import api from '../services/api';
-import { formatCurrency, formatDate } from '../utils/formatters';
+import { formatCurrency, formatCurrencyForPDF, formatDate } from '../utils/formatters';
 import StatCard from '../components/common/StatCard';
 import EmptyState from '../components/common/EmptyState';
 import { PageLoader } from '../components/common/LoadingSpinner';
@@ -91,7 +91,7 @@ const ReportsPage = () => {
         body: expenses.map((e) => [
           e.title,
           e.category,
-          formatCurrency(e.amount),
+          formatCurrencyForPDF(e.amount),
           e.paymentMethod,
           formatDate(e.date),
         ]),
@@ -121,8 +121,8 @@ const ReportsPage = () => {
       startY: 32,
       head: [['Month', 'Total Spent', 'Transactions']],
       body: [
-        ...report.months.map((m) => [m.label, formatCurrency(m.total), String(m.count)]),
-        ['Total', formatCurrency(report.yearTotal), String(report.yearTransactionCount)],
+        ...report.months.map((m) => [m.label, formatCurrencyForPDF(m.total), String(m.count)]),
+        ['Total', formatCurrencyForPDF(report.yearTotal), String(report.yearTransactionCount)],
       ],
       headStyles: { fillColor: [99, 102, 241] },
       didParseCell: (data) => {
@@ -153,15 +153,15 @@ const ReportsPage = () => {
       startY: 32,
       head: [['Metric', 'Value']],
       body: [
-        ['Total Spent', formatCurrency(report.totalSpent)],
+        ['Total Spent', formatCurrencyForPDF(report.totalSpent)],
         ...(reportType === 'monthly'
           ? [
-              ['Total Budget', formatCurrency(report.totalBudget)],
-              ['Remaining', formatCurrency(report.remaining)],
+              ['Total Budget', formatCurrencyForPDF(report.totalBudget)],
+              ['Remaining', formatCurrencyForPDF(report.remaining)],
             ]
           : []),
         ['Transactions', String(report.transactionCount)],
-        ['Average Daily Spend', formatCurrency(report.avgDaily)],
+        ['Average Daily Spend', formatCurrencyForPDF(report.avgDaily)],
       ],
       headStyles: { fillColor: [99, 102, 241] },
     });
@@ -171,7 +171,7 @@ const ReportsPage = () => {
       head: [['Category', 'Amount']],
       body: Object.entries(report.categoryBreakdown || {}).map(([cat, amt]) => [
         cat,
-        formatCurrency(amt),
+        formatCurrencyForPDF(amt),
       ]),
       headStyles: { fillColor: [16, 185, 129] },
     });
