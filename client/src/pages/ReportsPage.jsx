@@ -76,7 +76,7 @@ const ReportsPage = () => {
     setExporting(true);
     try {
       const { data } = await api.get('/expenses/export/pdf');
-      const expenses = data.data || [];
+      const expenses = data.data?.expenses || [];
 
       const doc = new jsPDF();
       doc.setFontSize(18);
@@ -101,7 +101,8 @@ const ReportsPage = () => {
 
       doc.save(`budgetnest-expenses-${Date.now()}.pdf`);
       toast.success('PDF exported');
-    } catch {
+    } catch (error) {
+      console.error('PDF export error:', error);
       toast.error('Failed to export PDF');
     }
     setExporting(false);
