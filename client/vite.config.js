@@ -9,6 +9,9 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    assetsDir: '_assets', // avoid colliding with the app's own "/assets" page route
+  },
   server: {
     port: 5173,
     proxy: {
