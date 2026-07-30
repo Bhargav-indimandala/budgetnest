@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
-  User, Wallet, Bell, Palette, Lock, Save, Sun, Moon, Star, ShieldAlert,
+  User, Wallet, Bell, Palette, Lock, Save, Sun, Moon, Star, ShieldAlert, Download, CheckCircle2,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useInstallPrompt } from '../hooks/useInstallPrompt';
 import api from '../services/api';
 import { CURRENCIES, CATEGORIES } from '../utils/constants';
 import toast from 'react-hot-toast';
@@ -20,6 +21,7 @@ const TABS = [
 const SettingsPage = () => {
   const { user, updateUser, logoutAllDevices } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { isInstallable, isInstalled, promptInstall } = useInstallPrompt();
   const [activeTab, setActiveTab] = useState('profile');
   const [saving, setSaving] = useState(false);
   const [loggingOutAll, setLoggingOutAll] = useState(false);
@@ -127,6 +129,15 @@ const SettingsPage = () => {
       toast.error(error.response?.data?.message || 'Failed to change password');
     }
     setSaving(false);
+  };
+
+  const handleInstallClick = async () => {
+    const { outcome } = await promptInstall();
+    if (outcome === 'accepted') {
+      toast.success('BudgetNest installed!');
+    } else if (outcome === 'dismissed') {
+      toast('Maybe next time', { icon: '👋' });
+    }
   };
 
   const handleLogoutAllDevices = async () => {
@@ -331,6 +342,34 @@ const SettingsPage = () => {
                   <Moon size={24} className="text-indigo-400" />
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Dark Mode</span>
                 </button>
+              </div>
+
+              <div className="pt-5 mt-5 border-t border-gray-100 dark:border-white/5">
+                <h3 className="text-sm font-semibold text-gray-800 dark:text-white flex items-center gap-2">
+                  <Download size={16} className="text-primary-500" /> Install App
+                </h3>
+                {isInstalled ? (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 flex items-center gap-1.5">
+                    <CheckCircle2 size={14} className="text-emerald-500" /> BudgetNest is already installed on this device.
+                  </p>
+                ) : isInstallable ? (
+                  <>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 mb-3">
+                      Install BudgetNest as an app on this device — opens full-screen, no browser bar, with its own icon.
+                    </p>
+                    <button
+                      onClick={handleInstallClick}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-primary-500 text-white hover:bg-primary-600 transition-all"
+                    >
+                      <Download size={16} /> Install BudgetNest
+                    </button>
+                  </>
+                ) : (
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
+                    On iPhone: open this site in Safari, tap the Share icon, then "Add to Home Screen".
+                    On desktop/Android Chrome, this option appears automatically once available.
+                  </p>
+                )}
               </div>
             </>
           )}
