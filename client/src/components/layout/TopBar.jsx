@@ -4,6 +4,7 @@ import { Menu, Bell, Plus, Search, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../services/api';
 import { getRelativeTime } from '../../utils/formatters';
+import DownloadAppButton from '../common/DownloadAppButton';
 
 const pageTitles = {
   '/': 'Dashboard',
@@ -84,6 +85,11 @@ const TopBar = ({ onMenuToggle }) => {
 
       {/* Right: Actions */}
       <div className="flex items-center gap-2">
+        {/* Get the App — hidden on mobile to keep the header uncluttered there */}
+        <div className="hidden sm:block mr-1">
+          <DownloadAppButton variant="compact" />
+        </div>
+
         {/* Search */}
         <div className="relative" ref={searchRef}>
           <button

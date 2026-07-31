@@ -1,0 +1,9 @@
+{
+  "appId": "com.budgetnest.app",
+  "appName": "BudgetNest",
+  "webDir": "dist",
+  "server": {
+    "url": "https://budgetnest-six.vercel.app",
+    "cleartext": false
+  }
+}

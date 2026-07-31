@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff, Leaf, Mail, Lock, User } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import DownloadAppButton from '../components/common/DownloadAppButton';
 import toast from 'react-hot-toast';
 
 const RegisterPage = () => {
@@ -169,6 +170,10 @@ const RegisterPage = () => {
               Sign In
             </Link>
           </p>
+
+          <div className="flex justify-center mt-4">
+            <DownloadAppButton />
+          </div>
         </div>
       </motion.div>
     </div>
