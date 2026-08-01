@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import DownloadAppButton from '../common/DownloadAppButton';
 
 const navItems = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -75,6 +76,11 @@ const Sidebar = ({ isOpen, onClose }) => {
 
       {/* Footer */}
       <div className="px-4 py-4 border-t border-gray-100 dark:border-white/5 space-y-2">
+        {/* Get the App */}
+        <div className="px-3 py-2">
+          <DownloadAppButton variant="compact" />
+        </div>
+
         {/* Theme Toggle */}
         <button
           onClick={toggleTheme}

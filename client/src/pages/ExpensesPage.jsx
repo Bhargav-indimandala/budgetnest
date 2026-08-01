@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import { formatCurrency, formatCurrencyForPDF, formatDate } from '../utils/formatters';
+import { saveOrShareFile } from '../utils/fileExport';
 import { CATEGORIES, PAYMENT_METHODS, CATEGORY_ICONS } from '../utils/constants';
 import Modal from '../components/common/Modal';
 import ExpenseForm from '../components/expenses/ExpenseForm';
@@ -274,12 +275,7 @@ const ExpensesPage = () => {
       });
       const csv = Papa.unparse(data.data);
       const blob = new Blob([csv], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `budgetnest-expenses-${new Date().toISOString().split('T')[0]}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
+      await saveOrShareFile(blob, `budgetnest-expenses-${new Date().toISOString().split('T')[0]}.csv`, 'text/csv');
       toast.success('CSV exported!');
     } catch {
       toast.error('Export failed');
@@ -312,7 +308,7 @@ const ExpensesPage = () => {
         headStyles: { fillColor: [99, 102, 241] },
       });
 
-      doc.save(`budgetnest-expenses-${new Date().toISOString().split('T')[0]}.pdf`);
+      await saveOrShareFile(doc.output('blob'), `budgetnest-expenses-${new Date().toISOString().split('T')[0]}.pdf`, 'application/pdf');
       toast.success('PDF exported!');
     } catch {
       toast.error('Export failed');

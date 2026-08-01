@@ -9,6 +9,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import api from '../services/api';
 import { formatCurrency, formatCurrencyForPDF, formatDate } from '../utils/formatters';
+import { saveOrShareFile } from '../utils/fileExport';
 import StatCard from '../components/common/StatCard';
 import EmptyState from '../components/common/EmptyState';
 import { PageLoader } from '../components/common/LoadingSpinner';
@@ -59,12 +60,7 @@ const ReportsPage = () => {
       const { data } = await api.get('/expenses/export/csv');
       const csv = Papa.unparse(data.data || []);
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `budgetnest-expenses-${Date.now()}.csv`;
-      link.click();
-      URL.revokeObjectURL(url);
+      await saveOrShareFile(blob, `budgetnest-expenses-${Date.now()}.csv`, 'text/csv');
       toast.success('CSV exported');
     } catch {
       toast.error('Failed to export CSV');
@@ -99,7 +95,7 @@ const ReportsPage = () => {
         styles: { fontSize: 9 },
       });
 
-      doc.save(`budgetnest-expenses-${Date.now()}.pdf`);
+      await saveOrShareFile(doc.output('blob'), `budgetnest-expenses-${Date.now()}.pdf`, 'application/pdf');
       toast.success('PDF exported');
     } catch (error) {
       console.error('PDF export error:', error);
@@ -108,7 +104,7 @@ const ReportsPage = () => {
     setExporting(false);
   };
 
-  const exportYearlyPDF = () => {
+  const exportYearlyPDF = async () => {
     if (!report) return;
     const doc = new jsPDF();
     doc.setFontSize(18);
@@ -132,11 +128,11 @@ const ReportsPage = () => {
       },
     });
 
-    doc.save(`budgetnest-yearly-${report.year}-${Date.now()}.pdf`);
+    await saveOrShareFile(doc.output('blob'), `budgetnest-yearly-${report.year}-${Date.now()}.pdf`, 'application/pdf');
     toast.success('Yearly report exported');
   };
 
-  const exportReportPDF = () => {
+  const exportReportPDF = async () => {
     if (!report) return;
     const doc = new jsPDF();
     doc.setFontSize(18);
@@ -176,7 +172,7 @@ const ReportsPage = () => {
       headStyles: { fillColor: [16, 185, 129] },
     });
 
-    doc.save(`budgetnest-${reportType}-report-${Date.now()}.pdf`);
+    await saveOrShareFile(doc.output('blob'), `budgetnest-${reportType}-report-${Date.now()}.pdf`, 'application/pdf');
     toast.success('Report PDF exported');
   };
 
