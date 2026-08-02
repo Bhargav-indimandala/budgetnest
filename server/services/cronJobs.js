@@ -4,7 +4,7 @@ const Budget = require('../models/Budget');
 const Expense = require('../models/Expense');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
-const { getISTParts, getISTDayRangeUTC } = require('../utils/dateUtils');
+const { getISTParts, getISTDayRangeUTC, getISTMonthRangeUTC } = require('../utils/dateUtils');
 
 // Process due recurring expenses (rent, internet, subscriptions, etc.)
 const runRecurringCheck = async () => {
@@ -19,10 +19,9 @@ const runBudgetCheck = async () => {
   let exceeded = 0;
   try {
     const now = new Date();
-    const month = now.getMonth() + 1;
-    const year = now.getFullYear();
-    const startOfMonth = new Date(year, month - 1, 1);
-    const endOfMonth = new Date(year, month, 0, 23, 59, 59);
+    const { year, month: istMonth0 } = getISTParts(now);
+    const month = istMonth0 + 1;
+    const { startUTC: startOfMonth, endUTC: endOfMonth } = getISTMonthRangeUTC(year, month);
 
     const budgets = await Budget.find({ month, year });
 

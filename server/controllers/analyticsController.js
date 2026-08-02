@@ -1,36 +1,31 @@
 const Expense = require('../models/Expense');
 const Budget = require('../models/Budget');
+const {
+  getISTParts, getISTDayRangeUTC, getISTMonthRangeUTC, getISTWeekRangeUTC, getDaysInISTMonth, getISTDateKey,
+} = require('../utils/dateUtils');
 
 // @desc    Get dashboard summary
 // @route   GET /api/analytics/dashboard
 exports.getDashboard = async (req, res, next) => {
   try {
     const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth() + 1;
-    const today = new Date(year, now.getMonth(), now.getDate());
-    const tomorrow = new Date(year, now.getMonth(), now.getDate() + 1);
+    const { year, month: istMonth0, day: istDay } = getISTParts(now);
+    const month = istMonth0 + 1; // 1-indexed, matches Budget.month storage
 
-    const startOfMonth = new Date(year, month - 1, 1);
-    const endOfMonth = new Date(year, month, 0, 23, 59, 59);
-
-    // Start of week (Monday)
-    const dayOfWeek = now.getDay() || 7;
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - dayOfWeek + 1);
-    startOfWeek.setHours(0, 0, 0, 0);
+    const { startUTC: today, endUTC: endOfToday } = getISTDayRangeUTC(now);
+    const { startUTC: startOfMonth, endUTC: endOfMonth } = getISTMonthRangeUTC(year, month);
+    const { startUTC: startOfWeek } = getISTWeekRangeUTC(now);
 
     // Previous month
     const prevMonth = month === 1 ? 12 : month - 1;
     const prevYear = month === 1 ? year - 1 : year;
-    const startOfPrevMonth = new Date(prevYear, prevMonth - 1, 1);
-    const endOfPrevMonth = new Date(prevYear, prevMonth, 0, 23, 59, 59);
+    const { startUTC: startOfPrevMonth, endUTC: endOfPrevMonth } = getISTMonthRangeUTC(prevYear, prevMonth);
 
     // Parallel queries
     const [monthlyExpenses, todayExpenses, weeklyExpenses, prevMonthExpenses, budget] =
       await Promise.all([
         Expense.find({ userId: req.user._id, isPlanned: { $ne: true }, date: { $gte: startOfMonth, $lte: endOfMonth } }),
-        Expense.find({ userId: req.user._id, isPlanned: { $ne: true }, date: { $gte: today, $lt: tomorrow } }),
+        Expense.find({ userId: req.user._id, isPlanned: { $ne: true }, date: { $gte: today, $lte: endOfToday } }),
         Expense.find({ userId: req.user._id, isPlanned: { $ne: true }, date: { $gte: startOfWeek, $lte: now } }),
         Expense.find({ userId: req.user._id, isPlanned: { $ne: true }, date: { $gte: startOfPrevMonth, $lte: endOfPrevMonth } }),
         Budget.findOne({ userId: req.user._id, month, year }),
@@ -44,8 +39,8 @@ exports.getDashboard = async (req, res, next) => {
     const totalBudget = budget ? budget.totalBudget : req.user.monthlyBudget || 0;
     const remaining = totalBudget - monthlyTotal;
 
-    const daysInMonth = new Date(year, month, 0).getDate();
-    const remainingDays = daysInMonth - now.getDate();
+    const daysInMonth = getDaysInISTMonth(year, month);
+    const remainingDays = daysInMonth - istDay;
     const safeDailySpending = remainingDays > 0 ? Math.max(0, remaining / remainingDays) : 0;
 
     // Category breakdown
@@ -102,12 +97,14 @@ exports.getMonthlyAnalytics = async (req, res, next) => {
   try {
     const { months = 6 } = req.query;
     const now = new Date();
+    const istNow = getISTParts(now);
     const data = [];
 
     for (let i = 0; i < parseInt(months); i++) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const startOfMonth = new Date(d.getFullYear(), d.getMonth(), 1);
-      const endOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59);
+      const totalMonthsBack = istNow.month - i;
+      const year = istNow.year + Math.floor(totalMonthsBack / 12);
+      const month0 = ((totalMonthsBack % 12) + 12) % 12; // 0-indexed
+      const { startUTC: startOfMonth, endUTC: endOfMonth } = getISTMonthRangeUTC(year, month0 + 1);
 
       const expenses = await Expense.find({
         userId: req.user._id,
@@ -122,13 +119,13 @@ exports.getMonthlyAnalytics = async (req, res, next) => {
       });
 
       data.push({
-        month: d.getMonth() + 1,
-        year: d.getFullYear(),
-        label: d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+        month: month0 + 1,
+        year,
+        label: new Date(Date.UTC(year, month0, 1)).toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' }),
         total,
         count: expenses.length,
         categoryBreakdown,
-        avgDaily: total / new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(),
+        avgDaily: total / getDaysInISTMonth(year, month0 + 1),
       });
     }
 
@@ -147,13 +144,7 @@ exports.getWeeklyAnalytics = async (req, res, next) => {
     const data = [];
 
     for (let i = 0; i < parseInt(weeks); i++) {
-      const startOfWeek = new Date(now);
-      startOfWeek.setDate(now.getDate() - (now.getDay() || 7) + 1 - i * 7);
-      startOfWeek.setHours(0, 0, 0, 0);
-
-      const endOfWeek = new Date(startOfWeek);
-      endOfWeek.setDate(startOfWeek.getDate() + 6);
-      endOfWeek.setHours(23, 59, 59, 999);
+      const { startUTC: startOfWeek, endUTC: endOfWeek, mondayLabel, sundayLabel } = getISTWeekRangeUTC(now, i);
 
       const expenses = await Expense.find({
         userId: req.user._id,
@@ -164,8 +155,8 @@ exports.getWeeklyAnalytics = async (req, res, next) => {
       const total = expenses.reduce((sum, e) => sum + e.amount, 0);
 
       data.push({
-        weekStart: startOfWeek.toISOString().split('T')[0],
-        weekEnd: endOfWeek.toISOString().split('T')[0],
+        weekStart: mondayLabel,
+        weekEnd: sundayLabel,
         total,
         count: expenses.length,
         avgDaily: total / 7,
@@ -187,21 +178,20 @@ exports.getDailyTrend = async (req, res, next) => {
     const data = [];
 
     for (let i = parseInt(days) - 1; i >= 0; i--) {
-      const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
-      const nextDay = new Date(day);
-      nextDay.setDate(day.getDate() + 1);
+      const dayInstant = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+      const { startUTC: day, endUTC: endOfDay } = getISTDayRangeUTC(dayInstant);
 
       const expenses = await Expense.find({
         userId: req.user._id,
         isPlanned: { $ne: true },
-        date: { $gte: day, $lt: nextDay },
+        date: { $gte: day, $lte: endOfDay },
       });
 
       const total = expenses.reduce((sum, e) => sum + e.amount, 0);
 
       data.push({
-        date: day.toISOString().split('T')[0],
-        label: day.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        date: getISTDateKey(dayInstant),
+        label: day.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'Asia/Kolkata' }),
         total,
         count: expenses.length,
       });
@@ -218,16 +208,14 @@ exports.getDailyTrend = async (req, res, next) => {
 exports.getInsights = async (req, res, next) => {
   try {
     const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth() + 1;
+    const { year, month: istMonth0, day: istDay } = getISTParts(now);
+    const month = istMonth0 + 1;
 
-    const startOfMonth = new Date(year, month - 1, 1);
-    const endOfMonth = new Date(year, month, 0, 23, 59, 59);
+    const { startUTC: startOfMonth, endUTC: endOfMonth } = getISTMonthRangeUTC(year, month);
 
     const prevMonth = month === 1 ? 12 : month - 1;
     const prevYear = month === 1 ? year - 1 : year;
-    const startOfPrevMonth = new Date(prevYear, prevMonth - 1, 1);
-    const endOfPrevMonth = new Date(prevYear, prevMonth, 0, 23, 59, 59);
+    const { startUTC: startOfPrevMonth, endUTC: endOfPrevMonth } = getISTMonthRangeUTC(prevYear, prevMonth);
 
     const [currentExpenses, prevExpenses, budget] = await Promise.all([
       Expense.find({ userId: req.user._id, isPlanned: { $ne: true }, date: { $gte: startOfMonth, $lte: endOfMonth } }),
@@ -286,14 +274,14 @@ exports.getInsights = async (req, res, next) => {
     }
 
     // Average daily spending
-    const daysElapsed = now.getDate();
+    const daysElapsed = istDay;
     const avgDaily = Math.round(currentTotal / daysElapsed);
     insights.push({ type: 'info', text: `Average spending per day is ₹${avgDaily.toLocaleString()}.`, icon: '📊' });
 
     // Safe spending
     if (totalBudget > 0) {
       const remaining = totalBudget - currentTotal;
-      const remainingDays = new Date(year, month, 0).getDate() - now.getDate();
+      const remainingDays = getDaysInISTMonth(year, month) - istDay;
 
       if (remaining > 0 && remainingDays > 0) {
         const safeDaily = Math.round(remaining / remainingDays);
@@ -314,13 +302,13 @@ exports.getInsights = async (req, res, next) => {
     // Most expensive day
     const dailyTotals = {};
     currentExpenses.forEach((e) => {
-      const dateKey = e.date.toISOString().split('T')[0];
+      const dateKey = getISTDateKey(e.date);
       dailyTotals[dateKey] = (dailyTotals[dateKey] || 0) + e.amount;
     });
 
     const mostExpensiveDay = Object.entries(dailyTotals).sort((a, b) => b[1] - a[1])[0];
     if (mostExpensiveDay) {
-      const dayLabel = new Date(mostExpensiveDay[0]).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const dayLabel = new Date(mostExpensiveDay[0]).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
       insights.push({ type: 'info', text: `Most expensive day: ${dayLabel} (₹${mostExpensiveDay[1].toLocaleString()}).`, icon: '📅' });
     }
 
@@ -335,10 +323,10 @@ exports.getInsights = async (req, res, next) => {
 exports.getCategoryBreakdown = async (req, res, next) => {
   try {
     const now = new Date();
-    const { month = now.getMonth() + 1, year = now.getFullYear() } = req.query;
+    const istNow = getISTParts(now);
+    const { month = istNow.month + 1, year = istNow.year } = req.query;
 
-    const startOfMonth = new Date(parseInt(year), parseInt(month) - 1, 1);
-    const endOfMonth = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59);
+    const { startUTC: startOfMonth, endUTC: endOfMonth } = getISTMonthRangeUTC(parseInt(year), parseInt(month));
 
     const expenses = await Expense.find({
       userId: req.user._id,
@@ -377,7 +365,8 @@ exports.getCategoryBreakdown = async (req, res, next) => {
 exports.getHeatmap = async (req, res, next) => {
   try {
     const now = new Date();
-    const startDate = new Date(now.getFullYear(), 0, 1); // Start of year
+    const istNow = getISTParts(now);
+    const { startUTC: startDate } = getISTMonthRangeUTC(istNow.year, 1); // Jan 1st, IST
 
     const expenses = await Expense.find({
       userId: req.user._id,
@@ -386,15 +375,17 @@ exports.getHeatmap = async (req, res, next) => {
     });
 
     const heatmapData = {};
+    const dateKeyByExpense = new Map();
     expenses.forEach((e) => {
-      const dateKey = e.date.toISOString().split('T')[0];
+      const dateKey = getISTDateKey(e.date);
+      dateKeyByExpense.set(e, dateKey);
       heatmapData[dateKey] = (heatmapData[dateKey] || 0) + e.amount;
     });
 
     const data = Object.entries(heatmapData).map(([date, amount]) => ({
       date,
       amount,
-      count: expenses.filter((e) => e.date.toISOString().split('T')[0] === date).length,
+      count: expenses.filter((e) => dateKeyByExpense.get(e) === date).length,
     }));
 
     res.json({ success: true, data });

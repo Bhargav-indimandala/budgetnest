@@ -1,13 +1,14 @@
 const Budget = require('../models/Budget');
 const Expense = require('../models/Expense');
+const { getISTParts, getISTMonthRangeUTC, getDaysInISTMonth } = require('../utils/dateUtils');
 
 // @desc    Get current month budget
 // @route   GET /api/budgets/current
 exports.getCurrentBudget = async (req, res, next) => {
   try {
     const now = new Date();
-    const month = now.getMonth() + 1;
-    const year = now.getFullYear();
+    const { year, month: istMonth0, day: currentDay } = getISTParts(now);
+    const month = istMonth0 + 1;
 
     let budget = await Budget.findOne({ userId: req.user._id, month, year });
 
@@ -22,8 +23,7 @@ exports.getCurrentBudget = async (req, res, next) => {
     }
 
     // Calculate spent amount
-    const startOfMonth = new Date(year, month - 1, 1);
-    const endOfMonth = new Date(year, month, 0, 23, 59, 59);
+    const { startUTC: startOfMonth, endUTC: endOfMonth } = getISTMonthRangeUTC(year, month);
 
     const expenses = await Expense.find({
       userId: req.user._id,
@@ -47,8 +47,7 @@ exports.getCurrentBudget = async (req, res, next) => {
     }));
 
     // Calculate remaining days
-    const daysInMonth = new Date(year, month, 0).getDate();
-    const currentDay = now.getDate();
+    const daysInMonth = getDaysInISTMonth(year, month);
     const remainingDays = daysInMonth - currentDay;
 
     const remaining = budget.totalBudget - totalSpent;
@@ -96,7 +95,6 @@ exports.upsertBudget = async (req, res, next) => {
 exports.getBudgetHistory = async (req, res, next) => {
   try {
     const { months = 6 } = req.query;
-    const now = new Date();
 
     const budgets = await Budget.find({ userId: req.user._id })
       .sort({ year: -1, month: -1 })
@@ -105,8 +103,7 @@ exports.getBudgetHistory = async (req, res, next) => {
     // Attach spent amount to each budget
     const history = await Promise.all(
       budgets.map(async (budget) => {
-        const startOfMonth = new Date(budget.year, budget.month - 1, 1);
-        const endOfMonth = new Date(budget.year, budget.month, 0, 23, 59, 59);
+        const { startUTC: startOfMonth, endUTC: endOfMonth } = getISTMonthRangeUTC(budget.year, budget.month);
 
         const expenses = await Expense.find({
           userId: req.user._id,
@@ -138,8 +135,8 @@ exports.getBudgetHistory = async (req, res, next) => {
 exports.getCategoryBudget = async (req, res, next) => {
   try {
     const now = new Date();
-    const month = now.getMonth() + 1;
-    const year = now.getFullYear();
+    const { year, month: istMonth0 } = getISTParts(now);
+    const month = istMonth0 + 1;
 
     const budget = await Budget.findOne({ userId: req.user._id, month, year });
     if (!budget) {
@@ -150,8 +147,7 @@ exports.getCategoryBudget = async (req, res, next) => {
       (cb) => cb.category === req.params.category
     );
 
-    const startOfMonth = new Date(year, month - 1, 1);
-    const endOfMonth = new Date(year, month, 0, 23, 59, 59);
+    const { startUTC: startOfMonth, endUTC: endOfMonth } = getISTMonthRangeUTC(year, month);
 
     const expenses = await Expense.find({
       userId: req.user._id,

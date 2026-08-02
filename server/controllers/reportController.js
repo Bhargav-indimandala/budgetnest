@@ -1,6 +1,7 @@
 const Expense = require('../models/Expense');
 const Budget = require('../models/Budget');
 const Report = require('../models/Report');
+const { getISTMonthRangeUTC, getISTYearRangeUTC, getISTWeekRangeUTC, getDaysInISTMonth, getISTDateKey } = require('../utils/dateUtils');
 
 // @desc    Get yearly report — every calendar month (Jan-Dec) of the given
 //          year with its total, plus a grand total for the whole year.
@@ -9,8 +10,7 @@ const Report = require('../models/Report');
 exports.getYearlyReport = async (req, res, next) => {
   try {
     const year = parseInt(req.params.year);
-    const startOfYear = new Date(year, 0, 1);
-    const endOfYear = new Date(year, 11, 31, 23, 59, 59, 999);
+    const { startUTC: startOfYear, endUTC: endOfYear } = getISTYearRangeUTC(year);
 
     const results = await Expense.aggregate([
       {
@@ -22,7 +22,7 @@ exports.getYearlyReport = async (req, res, next) => {
       },
       {
         $group: {
-          _id: { $month: '$date' },
+          _id: { $month: { date: '$date', timezone: 'Asia/Kolkata' } },
           total: { $sum: '$amount' },
           count: { $sum: 1 },
         },
@@ -76,8 +76,7 @@ exports.getYearlyReport = async (req, res, next) => {
 exports.getMonthlyReport = async (req, res, next) => {
   try {
     const { year, month } = req.params;
-    const startOfMonth = new Date(parseInt(year), parseInt(month) - 1, 1);
-    const endOfMonth = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59);
+    const { startUTC: startOfMonth, endUTC: endOfMonth } = getISTMonthRangeUTC(parseInt(year), parseInt(month));
 
     const expenses = await Expense.find({
       userId: req.user._id,
@@ -95,7 +94,7 @@ exports.getMonthlyReport = async (req, res, next) => {
       // Category
       categoryBreakdown[e.category] = (categoryBreakdown[e.category] || 0) + e.amount;
       // Daily
-      const dateKey = e.date.toISOString().split('T')[0];
+      const dateKey = getISTDateKey(e.date);
       dailyBreakdown[dateKey] = (dailyBreakdown[dateKey] || 0) + e.amount;
       // Payment method
       paymentMethods[e.paymentMethod] = (paymentMethods[e.paymentMethod] || 0) + e.amount;
@@ -107,7 +106,7 @@ exports.getMonthlyReport = async (req, res, next) => {
       year: parseInt(year),
     });
 
-    const daysInMonth = new Date(parseInt(year), parseInt(month), 0).getDate();
+    const daysInMonth = getDaysInISTMonth(parseInt(year), parseInt(month));
     const mostExpensiveDay = Object.entries(dailyBreakdown).sort((a, b) => b[1] - a[1])[0];
     const topCategory = Object.entries(categoryBreakdown).sort((a, b) => b[1] - a[1])[0];
 
@@ -129,7 +128,7 @@ exports.getMonthlyReport = async (req, res, next) => {
         amount: e.amount,
         category: e.category,
         paymentMethod: e.paymentMethod,
-        date: e.date.toISOString().split('T')[0],
+        date: getISTDateKey(e.date),
         notes: e.notes,
       })),
     };
@@ -144,15 +143,7 @@ exports.getMonthlyReport = async (req, res, next) => {
 // @route   GET /api/reports/weekly
 exports.getWeeklyReport = async (req, res, next) => {
   try {
-    const now = new Date();
-    const dayOfWeek = now.getDay() || 7;
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - dayOfWeek + 1);
-    startOfWeek.setHours(0, 0, 0, 0);
-
-    const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(startOfWeek.getDate() + 6);
-    endOfWeek.setHours(23, 59, 59, 999);
+    const { startUTC: startOfWeek, endUTC: endOfWeek, mondayLabel, sundayLabel } = getISTWeekRangeUTC();
 
     const expenses = await Expense.find({
       userId: req.user._id,
@@ -169,8 +160,8 @@ exports.getWeeklyReport = async (req, res, next) => {
     res.json({
       success: true,
       report: {
-        weekStart: startOfWeek.toISOString().split('T')[0],
-        weekEnd: endOfWeek.toISOString().split('T')[0],
+        weekStart: mondayLabel,
+        weekEnd: sundayLabel,
         totalSpent,
         transactionCount: expenses.length,
         avgDaily: Math.round(totalSpent / 7),
@@ -179,7 +170,7 @@ exports.getWeeklyReport = async (req, res, next) => {
           title: e.title,
           amount: e.amount,
           category: e.category,
-          date: e.date.toISOString().split('T')[0],
+          date: getISTDateKey(e.date),
         })),
       },
     });
@@ -197,10 +188,14 @@ exports.getCategoryReport = async (req, res, next) => {
     const now = new Date();
 
     const data = [];
+    const { getISTParts } = require('../utils/dateUtils');
+    const istNow = getISTParts(now);
     for (let i = 0; i < parseInt(months); i++) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const startOfMonth = new Date(d.getFullYear(), d.getMonth(), 1);
-      const endOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59);
+      // istNow.month is 0-indexed; walk back i months, wrapping years correctly
+      const totalMonthsBack = istNow.month - i;
+      const year = istNow.year + Math.floor(totalMonthsBack / 12);
+      const month = ((totalMonthsBack % 12) + 12) % 12; // 0-indexed, always positive
+      const { startUTC: startOfMonth, endUTC: endOfMonth } = getISTMonthRangeUTC(year, month + 1);
 
       const expenses = await Expense.find({
         userId: req.user._id,
@@ -210,9 +205,9 @@ exports.getCategoryReport = async (req, res, next) => {
       });
 
       data.push({
-        month: d.getMonth() + 1,
-        year: d.getFullYear(),
-        label: d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+        month: month + 1,
+        year,
+        label: new Date(Date.UTC(year, month, 1)).toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' }),
         total: expenses.reduce((sum, e) => sum + e.amount, 0),
         count: expenses.length,
       });

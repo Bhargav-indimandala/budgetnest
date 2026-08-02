@@ -1,4 +1,5 @@
 const Expense = require('../models/Expense');
+const { getISTDateKey, getISTDayRangeUTC } = require('../utils/dateUtils');
 
 // Escapes regex special characters so user input can't break/abuse the pattern
 const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -99,8 +100,7 @@ exports.checkDuplicate = async (req, res, next) => {
     }
 
     const targetDate = date ? new Date(date) : new Date();
-    const startOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
-    const endOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59, 999);
+    const { startUTC: startOfDay, endUTC: endOfDay } = getISTDayRangeUTC(targetDate);
 
     const query = {
       userId: req.user._id,
@@ -189,10 +189,7 @@ exports.mergeExpenses = async (req, res, next) => {
     }
 
     // Enforce same calendar day across all selected expenses
-    const dayKeys = expenses.map((e) => {
-      const d = new Date(e.date);
-      return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-    });
+    const dayKeys = expenses.map((e) => getISTDateKey(e.date));
     if (new Set(dayKeys).size > 1) {
       return res.status(400).json({
         success: false,
@@ -375,7 +372,7 @@ exports.exportCSV = async (req, res, next) => {
       Amount: e.amount,
       Category: e.category,
       'Payment Method': e.paymentMethod,
-      Date: e.date.toISOString().split('T')[0],
+      Date: getISTDateKey(e.date),
       Notes: e.notes || '',
       Tags: (e.tags || []).join('; '),
       Location: e.location || '',
@@ -411,7 +408,7 @@ exports.exportPDF = async (req, res, next) => {
           amount: e.amount,
           category: e.category,
           paymentMethod: e.paymentMethod,
-          date: e.date.toISOString().split('T')[0],
+          date: getISTDateKey(e.date),
           notes: e.notes || '',
         })),
         total,
