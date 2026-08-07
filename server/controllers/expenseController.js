@@ -89,6 +89,74 @@ exports.createExpense = async (req, res, next) => {
   }
 };
 
+// @desc    Add several expenses in one go (e.g. after a shopping trip) —
+//          each item keeps its own title/category/amount and is created as
+//          its own independent Expense document, so Reports/Analytics/Budgets
+//          treat them exactly like any individually-added expense: broken out
+//          by category, counted in totals, everything as normal. Nothing about
+//          single-item creation changes — this is a fully separate endpoint.
+// @route   POST /api/expenses/bulk-create
+// @body    { date?: "YYYY-MM-DD" (shared default), items: [{ title, amount, category, quantity?, paymentMethod?, notes?, date?, isPlanned? }] }
+exports.bulkCreateExpenses = async (req, res, next) => {
+  try {
+    const { items, date: sharedDate } = req.body;
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ success: false, message: 'Provide at least one item' });
+    }
+    if (items.length > 50) {
+      return res.status(400).json({ success: false, message: 'Maximum 50 items per batch' });
+    }
+
+    const created = [];
+    const errors = [];
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i] || {};
+      const label = item.title?.trim() || `Item ${i + 1}`;
+      try {
+        if (!item.title || !item.title.trim()) throw new Error('Title is required');
+        const amount = parseFloat(item.amount);
+        if (!amount || amount <= 0) throw new Error('Amount must be greater than 0');
+        if (!item.category || !item.category.trim()) throw new Error('Category is required');
+
+        const itemDate = item.date || sharedDate || new Date();
+        const isPlanned = !!item.isPlanned;
+        if (!isPlanned) {
+          const { endUTC: endOfTodayIST } = getISTDayRangeUTC();
+          if (new Date(itemDate) > endOfTodayIST) {
+            throw new Error('Date cannot be in the future unless marked as planned');
+          }
+        }
+
+        const expense = await Expense.create({
+          userId: req.user._id,
+          title: item.title.trim(),
+          amount,
+          quantity: item.quantity ? parseInt(item.quantity, 10) : 1,
+          category: item.category,
+          paymentMethod: item.paymentMethod || 'Cash',
+          date: itemDate,
+          notes: item.notes || '',
+          isPlanned,
+        });
+        created.push(expense);
+      } catch (err) {
+        errors.push({ index: i, title: label, message: err.message });
+      }
+    }
+
+    res.status(created.length > 0 ? 201 : 400).json({
+      success: created.length > 0,
+      created,
+      createdCount: created.length,
+      errors,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Check for a same-day matching expense (same title, category, amount)
 //          so the frontend can offer to merge instead of creating a duplicate
 // @route   GET /api/expenses/check-duplicate?title=&category=&amount=&date=

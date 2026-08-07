@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Plus, Search, Filter, Trash2, Copy, Download, FileText,
-  ChevronDown, X, CheckSquare, Square, Calendar, GitMerge,
+  ChevronDown, X, CheckSquare, Square, Calendar, GitMerge, Layers,
 } from 'lucide-react';
 import api from '../services/api';
 import { formatCurrency, formatCurrencyForPDF, formatDate } from '../utils/formatters';
@@ -11,6 +11,7 @@ import { saveOrShareFile } from '../utils/fileExport';
 import { CATEGORIES, PAYMENT_METHODS, CATEGORY_ICONS } from '../utils/constants';
 import Modal from '../components/common/Modal';
 import ExpenseForm from '../components/expenses/ExpenseForm';
+import BulkAddExpenses from '../components/expenses/BulkAddExpenses';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import EmptyState from '../components/common/EmptyState';
 import Pagination from '../components/common/Pagination';
@@ -26,6 +27,7 @@ const ExpensesPage = () => {
   const [pagination, setPagination] = useState({ total: 0, page: 1, pages: 1 });
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(searchParams.get('add') === 'true');
+  const [showBulkAdd, setShowBulkAdd] = useState(false);
   const [editExpense, setEditExpense] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [formLoading, setFormLoading] = useState(false);
@@ -332,6 +334,9 @@ const ExpensesPage = () => {
           <button onClick={exportPDF} className="btn-secondary flex items-center gap-2 text-sm">
             <FileText size={14} /> PDF
           </button>
+          <button onClick={() => setShowBulkAdd(true)} className="btn-secondary flex items-center gap-2 text-sm">
+            <Layers size={14} /> Add Multiple
+          </button>
           <button onClick={() => setShowForm(true)} className="btn-primary flex items-center gap-2">
             <Plus size={16} /> Add Expense
           </button>
@@ -616,6 +621,17 @@ const ExpensesPage = () => {
       {/* Add Expense Modal */}
       <Modal isOpen={showForm} onClose={() => { setShowForm(false); setSearchParams({}); }} title="Add Expense" size="lg">
         <ExpenseForm onSubmit={handleCreate} onCancel={() => { setShowForm(false); setSearchParams({}); }} loading={formLoading} />
+      </Modal>
+
+      {/* Add Multiple Expenses Modal */}
+      <Modal isOpen={showBulkAdd} onClose={() => setShowBulkAdd(false)} title="Add Multiple Expenses" size="xl">
+        <BulkAddExpenses
+          onClose={() => setShowBulkAdd(false)}
+          onDone={() => {
+            setShowBulkAdd(false);
+            fetchExpenses(1);
+          }}
+        />
       </Modal>
 
       {/* Edit Expense Modal */}

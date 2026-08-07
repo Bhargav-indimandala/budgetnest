@@ -3,7 +3,7 @@ const router = express.Router();
 const {
   getExpenses, getExpense, createExpense, updateExpense, deleteExpense,
   bulkDelete, duplicateExpense, searchExpenses, exportCSV, exportPDF, checkDuplicate, mergeExpenses, unmergeItem,
-  getPlannedDue,
+  getPlannedDue, bulkCreateExpenses,
 } = require('../controllers/expenseController');
 const { protect } = require('../middleware/auth');
 const { validate, expenseRules, objectIdRule } = require('../middleware/validate');
@@ -17,6 +17,7 @@ router.get('/planned-due', getPlannedDue);
 router.get('/export/csv', exportCSV);
 router.get('/export/pdf', exportPDF);
 router.post('/bulk-delete', bulkDelete);
+router.post('/bulk-create', bulkCreateExpenses);
 router.post('/merge', mergeExpenses);
 
 router.route('/')
