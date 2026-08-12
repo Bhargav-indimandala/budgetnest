@@ -327,17 +327,17 @@ const ExpensesPage = () => {
             {pagination.total} total expense{pagination.total !== 1 ? 's' : ''}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={exportCSV} className="btn-secondary flex items-center gap-2 text-sm">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+          <button onClick={exportCSV} className="btn-secondary flex items-center justify-center gap-2 text-sm">
             <Download size={14} /> CSV
           </button>
-          <button onClick={exportPDF} className="btn-secondary flex items-center gap-2 text-sm">
+          <button onClick={exportPDF} className="btn-secondary flex items-center justify-center gap-2 text-sm">
             <FileText size={14} /> PDF
           </button>
-          <button onClick={() => setShowBulkAdd(true)} className="btn-secondary flex items-center gap-2 text-sm">
+          <button onClick={() => setShowBulkAdd(true)} className="btn-secondary flex items-center justify-center gap-2 text-sm">
             <Layers size={14} /> Add Multiple
           </button>
-          <button onClick={() => setShowForm(true)} className="btn-primary flex items-center gap-2">
+          <button onClick={() => setShowForm(true)} className="btn-primary flex items-center justify-center gap-2">
             <Plus size={16} /> Add Expense
           </button>
         </div>
