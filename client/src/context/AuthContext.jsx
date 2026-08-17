@@ -78,13 +78,30 @@ export const AuthProvider = ({ children }) => {
     return data;
   }, []);
 
+  const forgotPassword = useCallback(async (email) => {
+    const { data } = await api.post('/auth/forgot-password', { email });
+    return data;
+  }, []);
+
+  const resetPassword = useCallback(async (email, otp, newPassword) => {
+    const { data } = await api.post('/auth/reset-password', { email, otp, newPassword });
+    setToken(data.token);
+    setUser(data.user);
+    toast.success('Password reset — you\'re logged in');
+    return data;
+  }, []);
+
   const updateUser = useCallback((updatedUser) => {
     setUser(updatedUser);
   }, []);
 
   return (
     <AuthContext.Provider
-      value={{ user, token, loading, login, register, logout, logoutAllDevices, updateUser, isAuthenticated: !!user }}
+      value={{
+        user, token, loading, login, register, logout, logoutAllDevices, updateUser,
+        forgotPassword, resetPassword,
+        isAuthenticated: !!user,
+      }}
     >
       {children}
     </AuthContext.Provider>

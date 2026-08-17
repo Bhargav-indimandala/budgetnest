@@ -78,6 +78,13 @@ const userSchema = new mongoose.Schema(
       default: 0,
       select: false,
     },
+    // OTP state for the forgot-password flow. Hidden by default like
+    // password/tokenVersion — never returned in normal queries.
+    passwordReset: {
+      codeHash: { type: String, select: false },
+      expiresAt: { type: Date, select: false },
+      lastSentAt: { type: Date, select: false },
+    },
   },
   {
     timestamps: true,

@@ -100,6 +100,11 @@ const LoginPage = () => {
                 </button>
               </div>
               {errors.password && <p className="text-xs text-red-400 mt-1">{errors.password.message}</p>}
+              <div className="text-right mt-1.5">
+                <Link to="/forgot-password" className="text-xs text-primary-400 hover:text-primary-300 transition-colors">
+                  Forgot password?
+                </Link>
+              </div>
             </div>
 
             <button

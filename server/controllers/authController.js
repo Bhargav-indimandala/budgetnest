@@ -1,5 +1,7 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { generateOtp, hashOtp, verifyOtp, OTP_EXPIRY_MINUTES, OTP_RESEND_COOLDOWN_SECONDS } = require('../utils/otp');
+const { sendEmail, otpEmailTemplate } = require('../utils/sendEmail');
 
 // Generate JWT token
 // tokenVersion is embedded so that bumping User.tokenVersion (on password
@@ -171,6 +173,98 @@ exports.logoutAll = async (req, res, next) => {
       success: true,
       message: 'Logged out of all other sessions',
       token,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Request a password-reset OTP by email. Always responds with the
+//          same generic message whether or not the email exists, so this
+//          can't be used to enumerate registered accounts.
+// @route   POST /api/auth/forgot-password
+exports.forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const genericResponse = { success: true, message: 'If that email is registered, a reset code has been sent' };
+
+    const user = await User.findOne({ email }).select('+passwordReset.lastSentAt');
+    if (!user) {
+      return res.json(genericResponse);
+    }
+
+    const lastSentAt = user.passwordReset?.lastSentAt;
+    if (lastSentAt && Date.now() - new Date(lastSentAt).getTime() < OTP_RESEND_COOLDOWN_SECONDS * 1000) {
+      // Still return the generic message here — a precise "wait Ns" response
+      // would itself confirm the email exists, undoing the point above.
+      return res.json(genericResponse);
+    }
+
+    const otp = generateOtp();
+    user.passwordReset = {
+      codeHash: hashOtp(otp),
+      expiresAt: new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000),
+      lastSentAt: new Date(),
+    };
+    await user.save();
+
+    await sendEmail({
+      to: user.email,
+      subject: 'Reset your password — BudgetNest',
+      html: otpEmailTemplate({ name: user.name, otp }),
+    });
+
+    res.json(genericResponse);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Complete a password reset with the emailed OTP. Also bumps
+//          tokenVersion, since a forgotten/reset password is exactly the
+//          moment any old leaked sessions should stop working.
+// @route   POST /api/auth/reset-password
+exports.resetPassword = async (req, res, next) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+
+    const user = await User.findOne({ email }).select(
+      '+passwordReset.codeHash +passwordReset.expiresAt +tokenVersion'
+    );
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'No account found for that email' });
+    }
+
+    const result = verifyOtp(otp, user.passwordReset?.codeHash, user.passwordReset?.expiresAt);
+    if (!result.valid) {
+      return res.status(400).json({ success: false, message: result.reason });
+    }
+
+    user.password = newPassword;
+    user.passwordReset = undefined;
+    user.tokenVersion += 1;
+    await user.save();
+
+    const token = generateToken(user._id, user.tokenVersion);
+
+    res.json({
+      success: true,
+      message: 'Password reset successfully',
+      token,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        avatar: user.avatar,
+        monthlyIncome: user.monthlyIncome,
+        monthlyBudget: user.monthlyBudget,
+        currency: user.currency,
+        theme: user.theme,
+        notificationPrefs: user.notificationPrefs,
+        defaultCategories: user.defaultCategories,
+        favoriteCategories: user.favoriteCategories,
+        reminderTime: user.reminderTime,
+      },
     });
   } catch (error) {
     next(error);

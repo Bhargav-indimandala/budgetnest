@@ -1,11 +1,19 @@
 const express = require('express');
 const router = express.Router();
-const { register, login, getMe, updateProfile, changePassword, logoutAll } = require('../controllers/authController');
+const {
+  register, login, getMe, updateProfile, changePassword, logoutAll,
+  forgotPassword, resetPassword,
+} = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
-const { validate, registerRules, loginRules, changePasswordRules } = require('../middleware/validate');
+const {
+  validate, registerRules, loginRules, changePasswordRules,
+  forgotPasswordRules, resetPasswordRules,
+} = require('../middleware/validate');
 
 router.post('/register', registerRules, validate, register);
 router.post('/login', loginRules, validate, login);
+router.post('/forgot-password', forgotPasswordRules, validate, forgotPassword);
+router.post('/reset-password', resetPasswordRules, validate, resetPassword);
 router.get('/me', protect, getMe);
 router.put('/profile', protect, updateProfile);
 router.put('/change-password', protect, changePasswordRules, validate, changePassword);

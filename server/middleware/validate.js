@@ -55,6 +55,16 @@ const changePasswordRules = [
   body('newPassword').isLength({ min: 6 }).withMessage('New password must be at least 6 characters'),
 ];
 
+const forgotPasswordRules = [
+  body('email').trim().isEmail().withMessage('Valid email is required').normalizeEmail(),
+];
+
+const resetPasswordRules = [
+  body('email').trim().isEmail().withMessage('Valid email is required').normalizeEmail(),
+  body('otp').trim().isLength({ min: 6, max: 6 }).withMessage('Enter the 6-digit code').isNumeric(),
+  body('newPassword').isLength({ min: 6 }).withMessage('New password must be at least 6 characters'),
+];
+
 // Expense validation rules
 const expenseRules = [
   body('title').trim().notEmpty().withMessage('Title is required').isLength({ max: 100 }),
@@ -132,6 +142,8 @@ module.exports = {
   registerRules,
   loginRules,
   changePasswordRules,
+  forgotPasswordRules,
+  resetPasswordRules,
   expenseRules,
   budgetRules,
   assetRules,
